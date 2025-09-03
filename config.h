@@ -1,4 +1,3 @@
-// ============================================================================
 // file: config.h
 // Shared configuration, pin map, and small helpers.
 // ============================================================================
@@ -24,25 +23,8 @@ static constexpr uint8_t AP_GW[4]        = {10,11,12,1};
 static constexpr uint8_t AP_MASK[4]      = {255,255,255,0};
 
 // -------------------- Behaviour --------------------
-static constexpr uint32_t PULSE_WIDTH_MS      = 50;   // Adjust to suit your HV gate/driver
-static constexpr uint32_t TELEMETRY_PERIOD_MS = 250;  // State push interval
-
-// -------------------- LED helpers --------------------
-enum LedStatus : uint8_t { LED_OFF=0, LED_GREEN=1, LED_AMBER=2 };
-
-inline void setStatusLED(LedStatus s) {
-  switch (s) {
-    case LED_OFF:
-      digitalWrite(PIN_LED_AMBER, LOW);
-      digitalWrite(PIN_LED_GREEN, LOW);
-      break;
-    case LED_GREEN:
-      digitalWrite(PIN_LED_AMBER, LOW);
-      digitalWrite(PIN_LED_GREEN, HIGH);
-      break;
-    case LED_AMBER:
-      digitalWrite(PIN_LED_AMBER, HIGH);
-      digitalWrite(PIN_LED_GREEN, LOW);
-      break;
-  }
-}
+// Default timing values; runtime configurable and persisted via Preferences
+static constexpr uint32_t DEFAULT_PULSE_WIDTH_MS = 10;   // single pulse width
+static constexpr uint32_t DEFAULT_BUZZ_SPACING_MS = 20;  // inter-pulse gap for buzz mode
+static constexpr uint8_t  DEFAULT_BUZZ_REPEAT    = 1;    // number of buzz repetitions
+static constexpr uint32_t TELEMETRY_PERIOD_MS    = 250;  // State push interval
