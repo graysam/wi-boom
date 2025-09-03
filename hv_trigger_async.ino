@@ -1,7 +1,6 @@
 // ============================================================================
 // file: hv_trigger_async.ino
-// ESP32-S3 (Arduino) — Wi-Fi HV Trigger (AsyncTCP + ESPAsyncWebServer + WS)
-// Minimal UI: a single “FIRE” button + LED controls; websocket telemetry ready.
+// ESP32-S3 (Arduino) — Wi-Fi HV Trigger with Async Web UI and persistent config.
 // ============================================================================
 
 #include <Arduino.h>
@@ -23,8 +22,6 @@ void setup() {
 
   pinMode(PIN_ADC_RESERVED, INPUT_PULLDOWN); // wired but currently unused
 
-  setStatusLED(LED_OFF);
-
   // Bring up AP + web stack
   setupWiFiAP();
   initWeb(); // mounts handlers + websocket + static page
@@ -40,4 +37,5 @@ void loop() {
     last = now;
     broadcastState();  // push inputs/telemetry to any connected WS clients
   }
+  updateIndicators();
 }
