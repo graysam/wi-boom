@@ -1,0 +1,23 @@
+# ============================================================================
+# file: library-notes.txt
+# ============================================================================
+# Required libraries (Arduino IDE → Library Manager):
+#   - AsyncTCP by dvarrel / me-no-dev (ESP32)
+#   - ESPAsyncWebServer by dvarrel / me-no-dev
+#   - ArduinoJson by Benoit Blanchon
+#
+# ESP32 Board package:
+#   - "esp32" by Espressif (use a recent 3.x)
+#
+# Board selection:
+#   - ESP32S3 Dev Module (ensure correct USB CDC and PSRAM options for your module)
+#
+# Notes:
+#   - This sketch serves the UI from PROGMEM; no FS (LittleFS) setup required.
+#   - SoftAP uses 10.11.12.1/24 with SSID 'Trigger-Remote'. Change password for field use.
+#   - WebSocket at /ws pushes JSON telemetry every 250 ms and accepts:
+#       {"cmd":"arm","on":true|false}
+#       {"cmd":"fire"}
+#       {"cmd":"led","which":"green|amber|off","on":true|false}
+#   - Fire action is hard-gated by 'armed' state and issues a HIGH pulse on PIN_PULSE_OUT for PULSE_WIDTH_MS.
+#   - Status bi-colour LED is mutually exclusive via setStatusLED().
