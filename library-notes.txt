@@ -7,7 +7,7 @@
 #   - ArduinoJson by Benoit Blanchon
 #
 # ESP32 Boards package:
-#   - "esp32" by Espressif (use a recent 3.x)
+#   - "esp32" by Espressif (recommended 2.0.14 for current libs)
 #
 # Board selection:
 #   - ESP32S3 Dev Module (ensure correct USB CDC and PSRAM options for your module)

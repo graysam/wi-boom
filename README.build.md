@@ -1,24 +1,30 @@
 # Build / Flash Notes
 
-## Arduino IDE
+Recommended Stack
+- ESP32 core: 2.0.14 (stable with current Async libs). Newer 3.x cores may require updated ESP32Async libraries.
+- Libraries: Async TCP (ESP32Async), ESP Async WebServer, ArduinoJson (see `library-notes.txt`).
+
+Scripts (preferred)
+- Windows: `buildAndBurn.bat`
+- macOS/Linux: `chmod +x buildAndBurn.sh && ./buildAndBurn.sh`
+  - Prompts for sketch, FQBN (default `esp32:esp32:esp32s3`), cleans build dir, compiles, lists ports for upload, retries once on errors.
+
+Arduino IDE
 - Tools > Board > ESP32 Arduino > ESP32S3 Dev Module
   - USB CDC On Boot: Enabled
-  - Upload Mode: UART0 / CDC (match your wiring)
-  - Flash Size: per your module (e.g., 8MB)
-- Libraries (Library Manager): AsyncTCP, ESPAsyncWebServer, ArduinoJson
-- Open `hv_trigger_async.ino` and Upload
+  - Upload Mode: UART0 / Hardware CDC
+  - Flash Size: per module (e.g., 8MB)
+- Open `hv_trigger_async.ino` and Upload.
 
-## Arduino CLI (optional)
-- Compile:
-  `arduino-cli compile --fqbn esp32:esp32:esp32s3 hv_trigger_async.ino`
-- Upload (replace `COM5` with your port):
-  `arduino-cli upload -p COM5 --fqbn esp32:esp32:esp32s3 hv_trigger_async.ino`
+Arduino CLI
+- Compile: `arduino-cli compile --fqbn esp32:esp32:esp32s3 hv_trigger_async.ino`
+- Upload:  `arduino-cli upload -p COM9 --fqbn esp32:esp32:esp32s3 hv_trigger_async.ino`
+- Monitor: `arduino-cli monitor -p COM9 -c baudrate=115200`
 
-## Connect & Use
-1. Join Wi‑Fi AP: SSID `Trigger-Remote` / pass `lollipop` (change in `config.h`).
-2. Browse to `http://10.11.12.1/`.
-3. Use the UI to set Mode, Width, Spacing, Repeat; Arm then FIRE.
+Connect & Use
+1. Join AP `Trigger-Remote` / pass `lollipop` (change in `config.h`).
+2. Open `http://10.11.12.1/`. Use UI to set Mode/Width/Spacing/Repeat; Arm then FIRE.
 
 Notes
-- The UI is served from PROGMEM; no LittleFS required.
-- Telemetry and commands use a WebSocket at `/ws` (~250 ms updates).
+- UI is served from PROGMEM; no filesystem needed.
+- WebSocket at `/ws` sends telemetry ~every 250 ms and after commands. See `docs/WS_API.md`.
