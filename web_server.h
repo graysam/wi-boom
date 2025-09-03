@@ -9,8 +9,8 @@
 void setupWiFiAP();
 void initWeb();
 void broadcastState();
+void updateIndicators();
 
 // Actions that UI may invoke
 bool actionArm(bool enabled);
-bool actionSetIndicator(const String &which, bool on);
 bool actionFire();
