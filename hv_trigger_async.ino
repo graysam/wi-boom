@@ -10,6 +10,8 @@
 void setup() {
   Serial.begin(115200);
   delay(100);
+  Serial.setDebugOutput(true);
+  Serial.println(F("Boot: HV Trigger Async starting"));
 
   // GPIO init
   pinMode(PIN_PULSE_OUT, OUTPUT);
@@ -19,6 +21,7 @@ void setup() {
   pinMode(PIN_LED_GREEN, OUTPUT);
   pinMode(PIN_LED_PULSE, OUTPUT);
   pinMode(PIN_LED_ARMED, OUTPUT);
+  Serial.println(F("GPIO: pins configured"));
 
   pinMode(PIN_ADC_RESERVED, INPUT_PULLDOWN); // wired but currently unused
 

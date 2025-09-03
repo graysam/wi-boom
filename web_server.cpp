@@ -36,6 +36,11 @@ static void loadPrefs() {
   g_cfg.width   = prefs.getUInt("width",   DEFAULT_PULSE_WIDTH_MS);
   g_cfg.spacing = prefs.getUInt("spacing", DEFAULT_BUZZ_SPACING_MS);
   g_cfg.repeat  = prefs.getUChar("repeat", DEFAULT_BUZZ_REPEAT);
+  Serial.printf("Prefs loaded: mode=%s width=%lu spacing=%lu repeat=%u\n",
+                g_cfg.buzz ? "buzz" : "single",
+                (unsigned long)g_cfg.width,
+                (unsigned long)g_cfg.spacing,
+                (unsigned)g_cfg.repeat);
 }
 
 static void savePrefs() {
@@ -43,6 +48,11 @@ static void savePrefs() {
   prefs.putUInt("width", g_cfg.width);
   prefs.putUInt("spacing", g_cfg.spacing);
   prefs.putUChar("repeat", g_cfg.repeat);
+  Serial.printf("Prefs saved: mode=%s width=%lu spacing=%lu repeat=%u\n",
+                g_cfg.buzz ? "buzz" : "single",
+                (unsigned long)g_cfg.width,
+                (unsigned long)g_cfg.spacing,
+                (unsigned)g_cfg.repeat);
 }
 
 // ---------------------------------------------------------------------------
@@ -63,6 +73,8 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html>
  #fire.enabled{opacity:1;}
  .row{display:flex;gap:12px;justify-content:center;}
  button.small{padding:12px 16px;border:0;border-radius:8px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);font-weight:600;}
+ .statusbar{position:fixed;left:0;right:0;bottom:0;height:32px;background:#0b1021;color:#e8f0ff;display:flex;align-items:center;justify-content:center;font:14px/1.2 ui-monospace,Consolas,monospace;}
+ .statusbar span{margin:0 8px;}
 </style>
 </head>
 <body>
@@ -86,31 +98,45 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html>
   </div>
 </div>
 
+<div class="statusbar" id="status">AP: <span id="ap">-</span> WS: <span id="ws">-</span> Armed: <span id="armed">-</span> Mode: <span id="smode">-</span> W:<span id="swidth">-</span> S:<span id="sspace">-</span> R:<span id="srep">-</span></div>
+
 <script>
 (()=>{
   const $=id=>document.getElementById(id);
   const mode=$("mode"), width=$("width"), spacing=$("spacing"), repeat=$("repeat");
   const fire=$("fire"), arm=$("arm"), disarm=$("disarm");
+  const ap=$("ap"), wsI=$("ws"), armedI=$("armed"), smode=$("smode"), swidth=$("swidth"), sspace=$("sspace"), srep=$("srep");
   const state={armed:false};
   const proto=location.protocol==="https:"?"wss":"ws";
   const ws=new WebSocket(`${proto}://${location.host}/ws`);
+
+  function setArmedUI(on){
+    state.armed=!!on;
+    if(!state.armed){
+      fire.disabled=true;fire.classList.remove("enabled");
+      [mode,width,spacing,repeat].forEach(el=>el.disabled=false);
+    }else{
+      fire.disabled=false;fire.classList.add("enabled");
+      [mode,width,spacing,repeat].forEach(el=>el.disabled=true);
+    }
+    armedI.textContent = state.armed?"yes":"no";
+  }
 
   ws.addEventListener("message",ev=>{
     try{
       const m=JSON.parse(ev.data);
       if(m.type==="state"){
-        state.armed=m.armed;
-        if(!state.armed){
-          mode.value=m.cfg.mode;
-          width.value=m.cfg.width;
-          spacing.value=m.cfg.spacing;
-          repeat.value=m.cfg.repeat;
-          fire.disabled=true;fire.classList.remove("enabled");
-          [mode,width,spacing,repeat].forEach(el=>el.disabled=false);
-        }else{
-          fire.disabled=false;fire.classList.add("enabled");
-          [mode,width,spacing,repeat].forEach(el=>el.disabled=true);
-        }
+        setArmedUI(m.armed);
+        mode.value=m.cfg.mode;
+        width.value=m.cfg.width;
+        spacing.value=m.cfg.spacing;
+        repeat.value=m.cfg.repeat;
+        ap.textContent = String(m.wifiClients||0);
+        wsI.textContent = m.wifiConnected?"yes":"no";
+        smode.textContent = m.cfg.mode;
+        swidth.textContent = m.cfg.width;
+        sspace.textContent = m.cfg.spacing;
+        srep.textContent = m.cfg.repeat;
       }
     }catch(e){}
   });
@@ -121,8 +147,8 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html>
   }
 
   [mode,width,spacing,repeat].forEach(el=>el.addEventListener("input",sendCfg));
-  arm.onclick=()=>ws.send(JSON.stringify({cmd:"arm",on:true}));
-  disarm.onclick=()=>ws.send(JSON.stringify({cmd:"arm",on:false}));
+  arm.onclick=()=>{ ws.send(JSON.stringify({cmd:"arm",on:true})); setArmedUI(true); };
+  disarm.onclick=()=>{ ws.send(JSON.stringify({cmd:"arm",on:false})); setArmedUI(false); };
   fire.onclick=()=>ws.send(JSON.stringify({cmd:"fire"}));
 })();
 </script>
@@ -150,22 +176,23 @@ void setupWiFiAP() {
 void updateIndicators() {
   const uint32_t now = millis();
 
-  // Network LED: amber flash if no AP clients, alt green/amber if no WS, steady green if WS
+  // Network LED: steady green if WS client(s), else amber flash if no AP clients, else alt green/amber
   static uint32_t lastNet = 0; static bool netToggle = false;
   if (now - lastNet >= 500) {
     lastNet = now;
+    ws.cleanupClients();
     uint8_t sta = WiFi.softAPgetStationNum();
-    if (sta == 0) {
+    if (ws.count() > 0) {
+      digitalWrite(PIN_LED_AMBER, LOW);
+      digitalWrite(PIN_LED_GREEN, HIGH);
+    } else if (sta == 0) {
       netToggle = !netToggle;
       digitalWrite(PIN_LED_AMBER, netToggle);
       digitalWrite(PIN_LED_GREEN, LOW);
-    } else if (ws.count() == 0) {
+    } else {
       netToggle = !netToggle;
       digitalWrite(PIN_LED_AMBER, netToggle);
       digitalWrite(PIN_LED_GREEN, !netToggle);
-    } else {
-      digitalWrite(PIN_LED_AMBER, LOW);
-      digitalWrite(PIN_LED_GREEN, HIGH);
     }
   }
 
@@ -186,8 +213,12 @@ bool actionArm(bool enabled) {
   if (enabled && !g_armed) {
     g_fire = g_cfg; // lock in current config
     g_armed = true;
+    Serial.printf("Action: ARM on=true (mode=%s w=%lu s=%lu r=%u)\n",
+                  g_fire.buzz?"buzz":"single",
+                  (unsigned long)g_fire.width,(unsigned long)g_fire.spacing,(unsigned)g_fire.repeat);
   } else if (!enabled) {
     g_armed = false;
+    Serial.println("Action: ARM on=false");
   }
   return true;
 }
@@ -200,6 +231,9 @@ static bool actionConfig(const JsonVariantConst &doc) {
   g_cfg.spacing = doc["spacing"] | g_cfg.spacing;
   g_cfg.repeat  = doc["repeat"]  | g_cfg.repeat;
   savePrefs();
+  Serial.printf("Action: CFG mode=%s w=%lu s=%lu r=%u\n",
+                g_cfg.buzz?"buzz":"single",
+                (unsigned long)g_cfg.width,(unsigned long)g_cfg.spacing,(unsigned)g_cfg.repeat);
   return true;
 }
 
@@ -227,12 +261,14 @@ static void fireTask(void *) {
   }
   g_pulseActive = false;
   g_armed = false;
+  Serial.println("Action: FIRE completed; auto-disarm");
   vTaskDelete(nullptr);
 }
 
 bool actionFire() {
   if (!g_armed || g_pulseActive) return false;
   g_pulseActive = true;
+  Serial.println("Action: FIRE start");
   xTaskCreate(fireTask, "fire", 2048, nullptr, 1, nullptr);
   return true;
 }
@@ -249,9 +285,10 @@ static void handleWsMessage(void *arg, uint8_t *data, size_t len) {
 
   StaticJsonDocument<256> doc;
   DeserializationError err = deserializeJson(doc, buf);
-  if (err) return;
+  if (err) { Serial.printf("WS: JSON parse error: %s\n", err.c_str()); return; }
 
   const char *cmd = doc["cmd"] | "";
+  Serial.printf("WS: msg %s\n", buf);
   if (!strcmp(cmd, "arm")) {
     bool on = doc["on"] | false;
     actionArm(on);
@@ -270,9 +307,11 @@ static void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
     case WS_EVT_CONNECT:
       Serial.printf("WS: client %u connected\n", client->id());
       g_pageLoadCount++;
+      broadcastState();
       break;
     case WS_EVT_DISCONNECT:
       Serial.printf("WS: client %u disconnected\n", client->id());
+      broadcastState();
       break;
     case WS_EVT_DATA:
       handleWsMessage(arg, data, len);
@@ -287,6 +326,7 @@ static void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 // HTTP
 static void onIndex(AsyncWebServerRequest *req) {
   g_pageLoadCount++;
+  Serial.printf("HTTP: GET / from %s\n", req->client()->remoteIP().toString().c_str());
   AsyncWebServerResponse *res = req->beginResponse_P(200, "text/html; charset=utf-8", INDEX_HTML);
   res->addHeader("Content-Security-Policy", "default-src 'self'; style-src 'unsafe-inline' 'self';");
   req->send(res);
@@ -295,6 +335,7 @@ static void onIndex(AsyncWebServerRequest *req) {
 void initWeb() {
   prefs.begin("hv", false);
   loadPrefs();
+  Serial.println(F("initWeb(): prefs ready, mounting routes"));
 
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
