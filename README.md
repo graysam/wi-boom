@@ -14,7 +14,7 @@ Firmware for an ESP32‑S3 hosting a minimal web UI to safely arm and trigger a 
 ## Quickstart
 1. Dependencies: ESP32 core (recommended 2.0.14), libraries in `library-notes.txt`.
 2. Build & Burn scripts (recommended):
-   - Windows: `buildAndBurn.bat`
+   - Windows: `buildAndBurn.ps1` (or `buildAndBurn.bat` wrapper)
    - macOS/Linux: `chmod +x buildAndBurn.sh && ./buildAndBurn.sh`
    Scripts prompt for sketch, FQBN, clean, port selection, and upload.
 3. Manual (Arduino IDE): select Board “ESP32S3 Dev Module”, enable USB CDC; open `hv_trigger_async.ino` and Upload.

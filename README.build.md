@@ -1,11 +1,11 @@
-# Build / Flash Notes
+﻿# Build / Flash Notes
 
 Recommended Stack
 - ESP32 core: 2.0.14 (stable with current Async libs). Newer 3.x cores may require updated ESP32Async libraries.
 - Libraries: Async TCP (ESP32Async), ESP Async WebServer, ArduinoJson (see `library-notes.txt`).
 
 Scripts (preferred)
-- Windows: `buildAndBurn.bat`
+- Windows: `buildAndBurn.ps1` (or the `buildAndBurn.bat` wrapper)
 - macOS/Linux: `chmod +x buildAndBurn.sh && ./buildAndBurn.sh`
   - Prompts for sketch, FQBN (default `esp32:esp32:esp32s3`), cleans build dir, compiles, lists ports for upload, retries once on errors.
 
