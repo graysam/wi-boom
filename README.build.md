@@ -7,7 +7,7 @@ Recommended Stack
 Scripts (preferred)
 - Windows: `buildAndBurn.ps1` (or the `buildAndBurn.bat` wrapper)
 - macOS/Linux: `chmod +x buildAndBurn.sh && ./buildAndBurn.sh`
-  - Prompts for sketch, FQBN (default `esp32:esp32:esp32s3`), cleans build dir, compiles, lists ports for upload, retries once on errors.
+  - Prompts for sketch, FQBN (default `esp32:esp32:esp32s3`), cleans build dir, compiles, lists ports for upload, retries once on errors, and can open a serial monitor.
 
 Arduino IDE
 - Tools > Board > ESP32 Arduino > ESP32S3 Dev Module

@@ -26,7 +26,7 @@ function Ensure-CoreEsp32 {
 }
 
 function Prompt-YesNo($Prompt, $Default='Y'){
-  $d = ($Default -match '^[Yy]') ? 'Y/n' : 'y/N'
+  $d = if ($Default -match '^[Yy]') { 'Y/n' } else { 'y/N' }
   $ans = Read-Host "$Prompt [$d]"
   if ([string]::IsNullOrWhiteSpace($ans)) { $ans = $Default }
   return ($ans -match '^(?i:y|yes)$')
@@ -116,5 +116,19 @@ if (Prompt-YesNo 'Upload to device now?' 'Y') {
   Write-Host 'Skipping upload.'
 }
 
-Write-Host (Write-Section 'Done')
+# Optional serial monitor
+if (Prompt-YesNo 'Open serial monitor now?' 'Y') {
+  if (-not $port) {
+    try { $port = Select-Port } catch { Write-Error $_; exit 1 }
+  }
+  $baud = Prompt-String 'Baudrate' '115200'
+  Write-Host (Write-Section "Serial monitor (^C to exit) on $port @ $baud")
+  $monArgs = @('monitor','-p', $port,'-c', "baudrate=$baud")
+  & arduino-cli @monArgs
+  if ($LASTEXITCODE -ne 0) {
+    Write-Warning 'Monitor failed. Retry once?'
+    if (Prompt-YesNo 'Retry monitor?' 'Y') { & arduino-cli @monArgs }
+  }
+}
 
+Write-Host (Write-Section 'Done')

@@ -1,6 +1,6 @@
-# HV Trigger Async (ESP32‑S3)
+﻿# HV Trigger Async (ESP32â€‘S3)
 
-Firmware for an ESP32‑S3 hosting a minimal web UI to safely arm and trigger a high‑voltage initiator. AsyncTCP + ESPAsyncWebServer power a WebSocket control channel; configuration persists via Preferences.
+Firmware for an ESP32â€‘S3 hosting a minimal web UI to safely arm and trigger a highâ€‘voltage initiator. AsyncTCP + ESPAsyncWebServer power a WebSocket control channel; configuration persists via Preferences.
 
 ## Features
 - SoftAP: `Trigger-Remote` / `lollipop`, IP `10.11.12.1`.
@@ -16,13 +16,13 @@ Firmware for an ESP32‑S3 hosting a minimal web UI to safely arm and trigger a 
 2. Build & Burn scripts (recommended):
    - Windows: `buildAndBurn.ps1` (or `buildAndBurn.bat` wrapper)
    - macOS/Linux: `chmod +x buildAndBurn.sh && ./buildAndBurn.sh`
-   Scripts prompt for sketch, FQBN, clean, port selection, and upload.
-3. Manual (Arduino IDE): select Board “ESP32S3 Dev Module”, enable USB CDC; open `hv_trigger_async.ino` and Upload.
+   Scripts prompt for sketch, FQBN, clean, port selection, upload, and can open a serial monitor.
+3. Manual (Arduino IDE): select Board â€œESP32S3 Dev Moduleâ€, enable USB CDC; open `hv_trigger_async.ino` and Upload.
 4. Connect to AP `Trigger-Remote` and open `http://10.11.12.1/`.
 
 ## Controls & Ranges
 - Mode: `single` or `buzz`.
-- Width: 5–100 ms; Spacing: 10–100 ms; Repeat: 1–4.
+- Width: 5â€“100 ms; Spacing: 10â€“100 ms; Repeat: 1â€“4.
 - Arm/Disarm gates firing; cfg changes ignored while armed.
 
 ## Build & Tools
@@ -38,4 +38,4 @@ See `docs/WS_API.md` for full WebSocket message formats, examples, and flows.
 - `config.h`: pins, SoftAP settings, defaults.
 
 ## Safety
-Change the default SoftAP password before field use. Treat the trigger output as live hardware—validate with a dummy load first.
+Change the default SoftAP password before field use. Treat the trigger output as live hardwareâ€”validate with a dummy load first.

@@ -70,6 +70,29 @@ select_port() {
   echo "${ports[$((choice-1))]}"
 }
 
+open_serial_monitor() {
+  local default_port="$1"
+  local port="$default_port"
+  if [[ -z "$port" ]]; then
+    port=$(select_port)
+  else
+    read -r -p "Serial port [$port]: " ans; port=${ans:-$port}
+  fi
+  local baud
+  read -r -p "Baudrate [115200]: " baud; baud=${baud:-115200}
+  banner; echo "Serial monitor (Ctrl+C to exit) on $port @ $baud"
+  set +e
+  arduino-cli monitor -p "$port" -c baudrate="$baud"
+  rc=$?
+  if [[ $rc -ne 0 ]]; then
+    echo "Monitor failed (rc=$rc). Retry? [Y/n]"; read -r ans; ans=${ans:-Y}
+    if [[ ${ans,,} =~ ^y ]]; then
+      arduino-cli monitor -p "$port" -c baudrate="$baud"
+    fi
+  fi
+  set -e
+}
+
 main() {
   banner
   echo "Build + Burn (macOS/Linux)"
@@ -127,7 +150,10 @@ main() {
     echo "Skipping upload."
   fi
   banner
+
+  if prompt_yes_no "Open serial monitor now?" "Y"; then
+    open_serial_monitor "$port"
+  fi
 }
 
 main "$@"
-
