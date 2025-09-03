@@ -19,11 +19,7 @@ ________________________________________________________________________________
 8	                15	        9	            RED			          ARMED & Ready to fire
 N/A     	        N/A	        n/a	          GREEN			        5V regulator active (indicates Vcc net is active @5v; power to MCU)
 ======================================================================================================================================
-
-
 */
-
-
 const int pulseOut        = 12;
 const int statusLedAmber  = 16;
 const int statusLedGreen  = 17;
@@ -93,11 +89,15 @@ void loop() {
 }
 
 void LEDControl(int led, int action) {
-
+// Code to make the fiddling of status LEDs easier and more consistent within other funcs
 }
 
-void statusLED(int colour, bool flash) {
-  // LED status: 0=off, 1=green, 2=amber
+void statusLED(int colour, int flash) {
+// preset actions for the bi-colour status LED
+  // LED status (colour): 0=off, 1=green, 2=amber, 3=alternate_greenFirst, 4=alternate_amberFirst.
+  // flash: 0=no flash, 1=200ms fast flash, 2=600ms slow flash, 3=blip-blip-gap, 4=blip-blip-blip-gap
+  // in alternate modes, 'gap' is replaced with the 'other' colour.
+  // blip=200ms, gap=600ms.
     switch(colour){
       case 0:
       digitalWrite(statusLedAmber,LOW);
