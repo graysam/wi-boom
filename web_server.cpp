@@ -329,5 +329,3 @@ void broadcastState() {
   const size_t n = serializeJson(doc, out, sizeof(out));
   ws.textAll(out, n);
 }
-
-web_server.h
