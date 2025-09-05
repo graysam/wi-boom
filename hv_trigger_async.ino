@@ -1,6 +1,6 @@
 // ============================================================================
 // file: hv_trigger_async.ino
-// ESP32-S3 (Arduino) — Wi-Fi HV Trigger with Async Web UI and persistent config.
+// ESP32-S3 (Arduino) â€” Wi-Fi HV Trigger with Async Web UI and persistent config.
 // ============================================================================
 
 #include <Arduino.h>
@@ -23,7 +23,7 @@ void setup() {
   pinMode(PIN_LED_ARMED, OUTPUT);
   Serial.println(F("GPIO: pins configured"));
 
-  pinMode(PIN_ADC_RESERVED, INPUT_PULLDOWN); // wired but currently unused
+  // ADC reserved pin removed on ESP32-CAM
 
   // Bring up AP + web stack
   setupWiFiAP();

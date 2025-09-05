@@ -5,13 +5,19 @@
 #pragma once
 #include <Arduino.h>
 
-// -------------------- Pin Assignments (ESP32-S3-WROOM-1 dev board) --------------------
-static constexpr uint8_t PIN_PULSE_OUT   = 12; // HV trigger pulse output (active HIGH)
-static constexpr uint8_t PIN_LED_AMBER   = 16; // Bi-colour LED half: AMBER = WiFi not connected
-static constexpr uint8_t PIN_LED_GREEN   = 17; // Bi-colour LED half: GREEN = WiFi connected/ready
-static constexpr uint8_t PIN_LED_PULSE   = 8;  // Blue LED: pulse active indicator
-static constexpr uint8_t PIN_LED_ARMED   = 9;  // Red LED: armed & ready to fire
-static constexpr uint8_t PIN_ADC_RESERVED= 11; // Reserved for future ADC input
+// -------------------- Pin Assignments (ESP32-CAM per pin_assignments.txt) --------------------
+// Ribbon order mapping and colours:
+//  - PULSE Signal:        GPIO16
+//  - AMBER (WiFi wait):   GPIO14
+//  - GREEN (WiFi ready):  GPIO15
+//  - BLUE (Pulse active): GPIO13
+//  - RED (Armed):         GPIO12
+static constexpr uint8_t PIN_PULSE_OUT   = 16; // HV trigger pulse output (active HIGH)
+static constexpr uint8_t PIN_LED_AMBER   = 14; // AMBER = WiFi not connected
+static constexpr uint8_t PIN_LED_GREEN   = 15; // GREEN = WiFi connected/ready
+static constexpr uint8_t PIN_LED_PULSE   = 13; // BLUE = pulse active indicator
+static constexpr uint8_t PIN_LED_ARMED   = 12; // RED  = armed & ready to fire
+// No ADC reserved on ESP32-CAM mapping
 
 // -------------------- Wi-Fi (SoftAP) --------------------
 static constexpr char WIFI_AP_SSID[]     = "Trigger-Remote";

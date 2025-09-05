@@ -1,4 +1,4 @@
-# PowerShell Build + Burn helper for HV Trigger Async (ESP32-S3)
+﻿# PowerShell Build + Burn helper for HV Trigger Async (ESP32-S3)
 # Usage: pwsh -ExecutionPolicy Bypass -File .\buildAndBurn.ps1
 
 param(

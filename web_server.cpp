@@ -364,7 +364,7 @@ void broadcastState() {
   cfg["repeat"]  = g_cfg.repeat;
   doc["wifiClients"] = WiFi.softAPgetStationNum();
   doc["wifiConnected"] = (ws.count() > 0);
-  doc["adc"] = analogRead(PIN_ADC_RESERVED);
+  doc["adc"] = 0;
 
   char out[256];
   const size_t n = serializeJson(doc, out, sizeof(out));
