@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include "config.h"
 #include "web_server.h"
+#include <ArduinoOTA.h>
 
 void setup() {
   Serial.begin(115200);
@@ -25,9 +26,18 @@ void setup() {
 
   // ADC reserved pin removed on ESP32-CAM
 
-  // Bring up AP + web stack
+  // Bring up AP/AP+STA + web stack
   setupWiFiAP();
   initWeb(); // mounts handlers + websocket + static page
+
+  // OTA setup (TCP/3232)
+  ArduinoOTA.onStart([](){ Serial.println(F("OTA: start")); });
+  ArduinoOTA.onEnd([](){ Serial.println(F("OTA: end")); });
+  ArduinoOTA.onProgress([](unsigned int p, unsigned int t){
+    Serial.printf("OTA: %u%%\n", (p*100)/t);
+  });
+  ArduinoOTA.onError([](ota_error_t e){ Serial.printf("OTA: error %u\n", e); });
+  ArduinoOTA.begin();
 
   Serial.println(F("System ready."));
 }
@@ -41,4 +51,5 @@ void loop() {
     broadcastState();  // push inputs/telemetry to any connected WS clients
   }
   updateIndicators();
+  ArduinoOTA.handle();
 }

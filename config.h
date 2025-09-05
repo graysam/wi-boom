@@ -5,6 +5,13 @@
 #pragma once
 #include <Arduino.h>
 
+// -------------------- Wi-Fi Mode --------------------
+// When true, device runs in AP+STA mode and attempts to join STA_SSID/STA_PASS
+// while also broadcasting its own SoftAP. When false, AP-only.
+static constexpr bool WIFI_APSTA = true;
+static constexpr char STA_SSID[] = "";     // set to join infrastructure Wi‑Fi (optional)
+static constexpr char STA_PASS[] = "";
+
 // -------------------- Pin Assignments (ESP32-CAM per pin_assignments.txt) --------------------
 // Ribbon order mapping and colours:
 //  - PULSE Signal:        GPIO16

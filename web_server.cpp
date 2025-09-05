@@ -156,12 +156,20 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html>
 </html>)HTML";
 
 // ---------------------------------------------------------------------------
-// Wi-Fi AP setup
+// Wi-Fi AP / AP+STA setup
 void setupWiFiAP() {
-  WiFi.mode(WIFI_AP);
   IPAddress ip(AP_IP[0], AP_IP[1], AP_IP[2], AP_IP[3]);
   IPAddress gw(AP_GW[0], AP_GW[1], AP_GW[2], AP_GW[3]);
   IPAddress mask(AP_MASK[0], AP_MASK[1], AP_MASK[2], AP_MASK[3]);
+
+  if (WIFI_APSTA && strlen(STA_SSID) > 0) {
+    WiFi.mode(WIFI_AP_STA);
+    Serial.printf("WiFi: starting AP+STA (ssid=%s)\n", STA_SSID);
+  } else {
+    WiFi.mode(WIFI_AP);
+    Serial.println(F("WiFi: starting AP-only"));
+  }
+
   if (!WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS)) {
     Serial.println(F("SoftAP start failed"));
   }
@@ -169,6 +177,21 @@ void setupWiFiAP() {
     Serial.println(F("SoftAP config failed"));
   }
   Serial.printf("AP up: %s  IP: %s\n", WIFI_AP_SSID, WiFi.softAPIP().toString().c_str());
+
+  if (WiFi.getMode() == WIFI_AP_STA && strlen(STA_SSID) > 0) {
+    WiFi.begin(STA_SSID, STA_PASS);
+    const uint32_t t0 = millis();
+    while (WiFi.status() != WL_CONNECTED && (millis() - t0) < 10000) {
+      delay(250);
+      Serial.print('.');
+    }
+    Serial.println();
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.printf("STA joined: %s\n", WiFi.localIP().toString().c_str());
+    } else {
+      Serial.println(F("STA join timeout"));
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -364,6 +387,9 @@ void broadcastState() {
   cfg["repeat"]  = g_cfg.repeat;
   doc["wifiClients"] = WiFi.softAPgetStationNum();
   doc["wifiConnected"] = (ws.count() > 0);
+  doc["staConnected"] = (WiFi.getMode() == WIFI_AP_STA && WiFi.status() == WL_CONNECTED);
+  doc["staIP"] = (WiFi.getMode() == WIFI_AP_STA && WiFi.status() == WL_CONNECTED)
+                   ? WiFi.localIP().toString() : String("");
   doc["adc"] = 0;
 
   char out[256];

@@ -5,7 +5,7 @@ set -euo pipefail
 # Requires: arduino-cli on PATH
 
 SKETCH_DEFAULT="hv_trigger_async.ino"
-FQBN_DEFAULT="esp32:esp32:esp32cam"
+FQBN_DEFAULT="esp32:esp32:esp32cam:PartitionScheme=default"
 BUILD_DIR="build"
 
 banner() { echo "=========================================================="; }
@@ -99,11 +99,15 @@ main() {
   require_arduino_cli
   ensure_core
 
+  # Scan sketches in script dir
+  local root
+  root="$(cd -- "$(dirname -- "$0")" && pwd)"
+  mapfile -t sketches < <(find "$root" -maxdepth 1 -type f -name "*.ino" -printf "%f\n" | sort)
   local sketch="$SKETCH_DEFAULT"
-  if prompt_yes_no "Use sketch $SKETCH_DEFAULT?" "Y"; then
-    :
-  else
-    read -r -p "Enter path to .ino: " sketch
+  if [[ ${#sketches[@]} -gt 0 ]]; then
+    echo "Found sketches:"; local i=0; for s in "${sketches[@]}"; do i=$((i+1)); echo "  $i) $s"; done
+    read -r -p "Select sketch [1-${#sketches[@]}] or Enter for default ($SKETCH_DEFAULT): " sel
+    if [[ -n "$sel" ]]; then sketch="${sketches[$((sel-1))]}"; fi
   fi
   [[ -f "$sketch" ]] || { echo "Sketch not found: $sketch"; exit 1; }
 
@@ -111,49 +115,50 @@ main() {
   read -r -p "Enter FQBN [$FQBN_DEFAULT]: " ans || true
   fqbn=${ans:-$FQBN_DEFAULT}
 
-  if [[ -d "$BUILD_DIR" ]]; then
-    if prompt_yes_no "Build folder '$BUILD_DIR' exists. Overwrite/clean?" "y"; then
-      rm -rf "$BUILD_DIR"
+  echo "Actions:"; echo "  1) Build only"; echo "  2) Upload only (existing build)"; echo "  3) Build and upload"
+  read -r -p "Select [1-3]: " action
+  [[ "$action" =~ ^[123]$ ]] || { echo "Invalid selection"; exit 1; }
+
+  local input_dir=""; local port=""; local method="serial"
+  if [[ "$action" == "2" || "$action" == "3" ]]; then
+    read -r -p "Upload via OTA (network)? [y/N]: " uans; uans=${uans:-N}
+    if [[ ${uans,,} =~ ^y ]]; then method="ota"; read -r -p "Enter device IP (or host:port) [10.11.12.1]: " port; port=${port:-10.11.12.1}; else
+      port=$(select_port)
+    fi
+  fi
+
+  if [[ "$action" == "2" ]]; then
+    echo "Scanning for build artifact directories..."
+    mapfile -t bindirs < <(find "$root" -maxdepth 2 -type d -name build)
+    if [[ ${#bindirs[@]} -gt 0 ]]; then
+      echo "Found:"; local i=0; for d in "${bindirs[@]}"; do i=$((i+1)); echo "  $i) $d"; done
+      read -r -p "Select input dir [1-${#bindirs[@]}] or enter path: " sel
+      if [[ "$sel" =~ ^[0-9]+$ ]]; then input_dir="${bindirs[$((sel-1))]}"; else input_dir="$sel"; fi
     else
-      echo "Aborting per user choice."; exit 1
+      read -r -p "Enter path to directory with compiled artifacts: " input_dir
     fi
   fi
 
-  banner
-  echo "Compiling: $sketch"
-  set +e
-  arduino-cli compile --fqbn "$fqbn" --output-dir "$BUILD_DIR" "$sketch"
-  rc=$?
-  if [[ $rc -ne 0 ]]; then
-    echo "Compile failed (rc=$rc). Retrying once..."
-    arduino-cli compile --fqbn "$fqbn" --output-dir "$BUILD_DIR" "$sketch" || { echo "Compile failed again."; exit 1; }
+  if [[ "$action" == "1" || "$action" == "3" ]]; then
+    if [[ -d "$BUILD_DIR" ]]; then
+      if prompt_yes_no "Build folder '$BUILD_DIR' exists. Overwrite/clean?" "y"; then rm -rf "$BUILD_DIR"; else echo "Aborting."; exit 1; fi
+    fi
+    banner; echo "Compiling: $sketch"
+    set +e; arduino-cli compile --fqbn "$fqbn" --output-dir "$BUILD_DIR" "$sketch"; rc=$?; if [[ $rc -ne 0 ]]; then echo "Retry compile..."; arduino-cli compile --fqbn "$fqbn" --output-dir "$BUILD_DIR" "$sketch" || { echo "Compile failed."; exit 1; }; fi; set -e
+    input_dir="$BUILD_DIR"
+    echo "Build artifacts in: $input_dir"
   fi
-  set -e
-  echo "Build artifacts in: $BUILD_DIR"
 
-  if prompt_yes_no "Upload to device now?" "Y"; then
-    local port
-    port=$(select_port)
-    banner
-    echo "Uploading to $port ..."
+  if [[ "$action" == "2" || "$action" == "3" ]]; then
+    banner; echo "Uploading via $method to $port"
     set +e
-    arduino-cli upload -p "$port" --fqbn "$fqbn" "$sketch"
-    rc=$?
-    if [[ $rc -ne 0 ]]; then
-      echo "Upload failed (rc=$rc). Retrying once..."
-      sleep 1
-      arduino-cli upload -p "$port" --fqbn "$fqbn" "$sketch" || { echo "Upload failed again."; exit 1; }
-    fi
-    set -e
-    echo "Upload completed."
-  else
-    echo "Skipping upload."
+    arduino-cli upload -p "$port" --fqbn "$fqbn" --input-dir "$input_dir"; rc=$?
+    if [[ $rc -ne 0 ]]; then echo "Upload failed (rc=$rc). Close conflicting apps and press Enter to retry..."; read -r _; arduino-cli upload -p "$port" --fqbn "$fqbn" --input-dir "$input_dir" || { echo "Upload failed again."; exit 1; }; fi
+    set -e; echo "Upload completed."
   fi
-  banner
 
-  if prompt_yes_no "Open serial monitor now?" "Y"; then
-    open_serial_monitor "$port"
-  fi
+  banner
+  if prompt_yes_no "Open serial monitor now?" "Y"; then open_serial_monitor "$port"; fi
 }
 
 main "$@"
