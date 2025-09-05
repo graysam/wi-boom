@@ -1,0 +1,14 @@
+PIN ASSIGNMENTS
+
+RIBBON
+ORDER	GPIO#	NEW_GPIO	LED_COLOUR		PURPOSE
+===================================================================
+1				[Red Stripe]		Vcc
+2							Ground
+3	12	->16					PULSE Signal
+4	11	->X(removed)				[Not Assigned] - Reserved for ADC-Input, no longer to be reserved.
+5	16	->14		ORANGE_BICOLOUR		Wait; Wifi not connected
+6	17	->15		GREEN_BIVOLOUR		Ready; Wi-Fi Connected
+7	8	->13		BLUE			Pulse signal active
+8	9	->12		RED			ARMED & Ready to fire
+NO-MCU	N/A	n/a			GREEN			5V regulator active (power to MCU)
