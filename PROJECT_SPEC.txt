@@ -1,0 +1,183 @@
+HV Trigger Async — Reproducible System Specification
+
+1) Purpose & Scope
+- Goal: A small, self‑hosted controller that safely “arms” and triggers a high‑voltage discharge device via a networked UI or API.
+- Constraints: Simple, robust, low‑latency; never fire unless explicitly armed; persist user configuration across power cycles.
+- Portability: This document defines behavior, protocols, and timing in platform‑agnostic terms so the system can be rebuilt in any language or on any MCU/SoC.
+
+2) Hardware Abstraction (Platform‑agnostic)
+- Outputs:
+  - TRIGGER_OUT: digital output, active HIGH; drives HV trigger interface through appropriate isolation.
+  - LED_READY_GREEN: ON when a control client is connected via WebSocket; otherwise used for network status (see Indicators).
+  - LED_WAIT_AMBER: indicates Wi‑Fi wait/partial connectivity (see Indicators).
+  - LED_PULSE_BLUE: indicates pulse activity (mirrors TRIGGER_OUT timing; may enforce a minimum visible off‑time).
+  - LED_ARMED_RED: slow blink while armed.
+- Optional Inputs: None required; an ADC may be reserved for future telemetry; treat as 0 if not available.
+- Electrical: Debounce is not required on outputs. Ensure proper isolation for HV path. LEDs may be multiplexed or separate.
+
+3) Operational Modes & Timing
+- Fire modes:
+  - single: Output a single HIGH pulse for width_ms.
+  - buzz: Emit a buzz sequence per repetition: 10 sub‑pulses; each sub‑pulse is HIGH for width_ms then LOW; sub‑pulses are separated by spacing_ms; repetitions are separated by spacing_ms.
+- Parameters (runtime configurable, persisted):
+  - width_ms: 5–100 (default 10)
+  - spacing_ms: 10–100 (default 20)
+  - repeat: 1–4 (default 1)
+- Guard timing: If width_ms < 50, enforce an extra LOW delay to achieve at least 50 ms between successive HIGH operations (for visibility and power integrity).
+- Telemetry tick: ~250 ms (configurable) for periodic state broadcast.
+
+4) Safety Model & State Machine
+- States: DISARMED → ARMED → FIRING → DISARMED (auto after completion).
+- Transitions:
+  - DISARMED → ARMED: on Arm command; snapshot current configuration.
+  - ARMED → FIRING: on Fire command; ignored if already FIRING.
+  - FIRING → DISARMED: automatically upon completion (auto‑disarm) or on explicit Disarm.
+- Rules:
+  - Configuration changes (mode/width/spacing/repeat) are rejected while ARMED.
+  - Fire is rejected unless ARMED and not FIRING.
+  - All command results are reflected by the next telemetry frame.
+
+5) Network Topology & Services
+- Access Point (AP): Device hosts a Wi‑Fi SoftAP, default IPv4 10.11.12.1/24.
+- Optional AP+STA: Device may also join a configured infrastructure SSID concurrently. Telemetry reports STA connectivity and IP when joined.
+- HTTP service (port 80): Serves a minimal control UI (optional; API alone is sufficient).
+- WebSocket (path /ws): Primary control channel for commands and telemetry.
+- OTA (optional): Firmware update over network (default TCP port 3232). Requires an OTA‑capable partition layout on platforms that need it.
+
+6) WebSocket Protocol (Canonical)
+- Transport: WebSocket, text frames, JSON payloads, no newlines in frames.
+- Telemetry (push ~250 ms and after commands):
+  {
+    "type": "state",
+    "armed": false,
+    "pulseActive": false,
+    "pageCount": 0,                    // optional page load counter if UI served
+    "wifiClients": 0,                   // connected AP stations
+    "wifiConnected": false,             // true if any WS clients are connected
+    "staConnected": false,              // AP+STA only
+    "staIP": "",                        // AP+STA only
+    "adc": 0,                           // reserved, 0 if unused
+    "cfg": { "mode": "single|buzz", "width": 10, "spacing": 20, "repeat": 1 }
+  }
+- Commands (client → device):
+  1) Arm/Disarm: { "cmd": "arm", "on": true|false }
+  2) Configure (ignored when armed): { "cmd": "cfg", "mode": "single|buzz", "width": 5..100, "spacing": 10..100, "repeat": 1..4 }
+  3) Fire (armed only): { "cmd": "fire" }
+- Behavior:
+  - After any valid command, device pushes a fresh telemetry frame.
+  - Unknown fields are ignored; unknown commands are no‑ops.
+
+7) Indicators (Normative Behavior)
+- Network/Ready LEDs:
+  - If >=1 WS client connected: LED_READY_GREEN = ON (steady), LED_WAIT_AMBER = OFF.
+  - Else if AP station count == 0: LED_WAIT_AMBER = slow blink (e.g., 500 ms); LED_READY_GREEN = OFF.
+  - Else (some AP stations, no WS): Alternate AMBER/GREEN to signal partial connectivity.
+- Armed LED:
+  - ARMED: blink ~1 Hz; DISARMED: OFF.
+- Pulse LED:
+  - Mirrors TRIGGER_OUT HIGH while firing (both single and buzz sequences).
+
+8) Persistence
+- Store configuration (mode, width_ms, spacing_ms, repeat) in non‑volatile storage under a stable namespace.
+- Load on boot before servicing network requests.
+- Write through on configuration changes that are accepted (i.e., DISARMED only).
+
+9) UI Requirements (Optional Reference Implementation)
+- Client controls:
+  - Mode: select [single|buzz]
+  - Width: range 5..100 ms
+  - Spacing: range 10..100 ms
+  - Repeat: range 1..4
+  - Arm (gates firing), Disarm, FIRE button
+- Behavior:
+  - While ARMED: sliders disabled; FIRE enabled.
+  - While DISARMED: sliders enabled; FIRE disabled.
+  - Bottom “status bar”: AP stations, WS status, Armed state, Mode, Width, Spacing, Repeat.
+- Optimistic UI (optional): enable FIRE immediately after sending Arm, remain consistent with telemetry.
+
+10) Concurrency & Responsiveness
+- The “fire” routine must not block request processing:
+  - Run pulse generation in a separate task/thread/timer/ISR that leaves the event loop responsive.
+  - Broadcast state during loop ticks; avoid pushing frames inside tight timing sections.
+- Use message queues or atomic flags to communicate between network layer and timing layer.
+
+11) OTA Update (Optional)
+- Service an OTA agent on TCP port 3232 (or similar) concurrently with HTTP/WS.
+- Platform‑specific: choose an OTA‑capable partition scheme (e.g., “default” A/B on ESP32) and ensure adequate free space.
+- UX: report OTA start/progress/end and errors to the serial log.
+
+12) Security & Safety
+- Change default SoftAP password for field use.
+- Treat TRIGGER_OUT as live hardware; test with a dummy load before connecting to HV.
+- Consider adding a physical interlock/arming switch for extra safety.
+- Limit exposure: run AP isolated; if enabling STA, restrict access (WPA2+ strong passphrase, VLANs, or IP allow‑lists).
+
+13) Reference Timing (Pseudo‑logic)
+- DISPATCH LOOP (every ~250 ms):
+  - Push telemetry frame to all WS clients.
+  - Update indicators (based on AP station count and WS client count).
+  - Poll OTA handler (if present).
+- FIRING (single):
+  - TRIGGER_OUT = HIGH; LED_PULSE_BLUE = HIGH; delay width_ms
+  - TRIGGER_OUT = LOW; LED_PULSE_BLUE = LOW
+  - If width_ms < 50: ensure additional LOW delay to total ~50 ms
+  - Auto‑disarm
+- FIRING (buzz):
+  - Repeat for r in 1..repeat:
+    - For i in 1..10:
+      - HIGH for width_ms, then LOW
+      - If width_ms < 50: add extra LOW delay to reach ~50 ms
+      - If i<10: delay spacing_ms
+    - If r<repeat: delay spacing_ms
+  - Auto‑disarm
+
+14) Serial Logging (Recommended)
+- Boot: libraries ready, pins configured, AP started (IP), STA join attempts and results.
+- HTTP: route hits (e.g., GET /), client IPs.
+- WebSocket: connect/disconnect events, message bodies received, JSON parse errors.
+- Actions: CFG (with values), ARM on/off (with snapshot), FIRE start/completed.
+
+15) Minimal “Any‑Language” Implementation Plan
+- Step 1: Hardware Abstraction Layer (HAL)
+  - Map TRIGGER_OUT and LED pins to target platform; implement digitalWrite/read and millisecond delays.
+  - Provide a non‑blocking scheduler (event loop + periodic tick + worker task for firing).
+- Step 2: Storage
+  - Implement a small persistent KV store (mode, width, spacing, repeat); load on boot; write on accepted cfg updates.
+- Step 3: Network
+  - Bring up SoftAP (and optional STA) with a static IP (10.11.12.1/24 or platform equivalent).
+  - Start HTTP (port 80) and WS (/ws) services. Serve a minimal HTML UI (optional).
+- Step 4: Protocol & State
+  - Implement WS message handling for arm/cfg/fire; enforce state machine rules.
+  - Push telemetry frames on a fixed tick and after each command.
+- Step 5: Fire Engine
+  - Implement the timing routines for single and buzz modes with repeat and guard timing.
+  - Ensure the engine runs independently of the network loop.
+- Step 6: Indicators
+  - Implement LED rules for network, armed, and pulse status.
+- Step 7: OTA (optional)
+  - Add OTA server (e.g., TCP/3232); ensure partitioning and concurrency with HTTP.
+- Step 8: Test & Validate
+  - Unit test the state machine; bench test timing with a logic analyzer; end‑to‑end WS tests.
+
+16) Example Pin Mapping (Current ESP32‑CAM Build)
+- TRIGGER_OUT = GPIO16 (active HIGH)
+- LED_WAIT_AMBER = GPIO14
+- LED_READY_GREEN = GPIO15
+- LED_PULSE_BLUE = GPIO13
+- LED_ARMED_RED = GPIO12
+- SoftAP SSID = "Trigger-Remote", pass = "lollipop", IP = 10.11.12.1/24
+- WebSocket path = /ws; HTTP = port 80; OTA = TCP 3232
+
+17) Acceptance Criteria
+- Disarmed by default on boot; configuration loaded and reflected in telemetry.
+- Arm → Fire → Auto‑disarm cycle behaves exactly as specified for both modes and all parameter bounds.
+- LED behavior matches rules for all connectivity and armed/firing states.
+- Telemetry reflects reality (cfg, armed, pulseActive, Wi‑Fi/WS status) at ~250 ms cadence.
+- Config updates while armed are rejected and do not alter the firing snapshot.
+- OTA updates do not disrupt HTTP/WS when idle and complete with progress logs.
+
+18) Extensibility Notes
+- Multi‑channel outputs: replicate the Fire Engine with per‑channel configs; include channel id in WS messages.
+- Authentication: add a shared token or per‑session pairing for WS commands.
+- Alternative transports: CoAP/UDP or BLE GATT with equivalent state and command semantics.
+
