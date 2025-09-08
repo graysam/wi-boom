@@ -1,43 +1,21 @@
-// file: config.h
-// Shared configuration, pin map, and small helpers.
-// ============================================================================
-
 #pragma once
-#include <Arduino.h>
 
-// -------------------- Wi-Fi Mode --------------------
-// When true, device runs in AP+STA mode and attempts to join STA_SSID/STA_PASS
-// while also broadcasting its own SoftAP. When false, AP-only.
-static constexpr bool WIFI_APSTA = true;
-static constexpr char STA_SSID[] = "";     // set to join infrastructure Wi‑Fi (optional)
-static constexpr char STA_PASS[] = "";
+// Network configuration
+#define SOFTAP_SSID       "Trigger-Remote"
+#define SOFTAP_PASS       "lollipop"
 
-// -------------------- Pin Assignments (ESP32-CAM per pin_assignments.txt) --------------------
-// Ribbon order mapping and colours:
-//  - PULSE Signal:        GPIO16
-//  - AMBER (WiFi wait):   GPIO14
-//  - GREEN (WiFi ready):  GPIO15
-//  - BLUE (Pulse active): GPIO13
-//  - RED (Armed):         GPIO12
-static constexpr uint8_t PIN_PULSE_OUT   = 16; // HV trigger pulse output (active HIGH)
-static constexpr uint8_t PIN_LED_AMBER   = 14; // AMBER = WiFi not connected
-static constexpr uint8_t PIN_LED_GREEN   = 15; // GREEN = WiFi connected/ready
-static constexpr uint8_t PIN_LED_PULSE   = 13; // BLUE = pulse active indicator
-static constexpr uint8_t PIN_LED_ARMED   = 12; // RED  = armed & ready to fire
-// No ADC reserved on ESP32-CAM mapping
+// SoftAP static IP: 10.11.12.1/24
+#define SOFTAP_IP_OCT1    10
+#define SOFTAP_IP_OCT2    11
+#define SOFTAP_IP_OCT3    12
+#define SOFTAP_IP_OCT4    1
 
-// -------------------- Wi-Fi (SoftAP) --------------------
-static constexpr char WIFI_AP_SSID[]     = "Trigger-Remote";
-static constexpr char WIFI_AP_PASS[]     = "lollipop"; // change for field use
+#define TELEMETRY_INTERVAL_MS 250
 
-// SoftAP IPv4
-static constexpr uint8_t AP_IP[4]        = {10,11,12,1};
-static constexpr uint8_t AP_GW[4]        = {10,11,12,1};
-static constexpr uint8_t AP_MASK[4]      = {255,255,255,0};
+// Fire engine defaults
+#define DEFAULT_MODE_BUZZ       0  // 0=single,1=buzz
+#define DEFAULT_WIDTH_MS        10
+#define DEFAULT_SPACING_MS      20
+#define DEFAULT_REPEAT          1
+#define DEFAULT_REPEAT_INTERVAL 150
 
-// -------------------- Behaviour --------------------
-// Default timing values; runtime configurable and persisted via Preferences
-static constexpr uint32_t DEFAULT_PULSE_WIDTH_MS = 10;   // single pulse width
-static constexpr uint32_t DEFAULT_BUZZ_SPACING_MS = 20;  // inter-pulse gap for buzz mode
-static constexpr uint8_t  DEFAULT_BUZZ_REPEAT    = 1;    // number of buzz repetitions
-static constexpr uint32_t TELEMETRY_PERIOD_MS    = 250;  // State push interval

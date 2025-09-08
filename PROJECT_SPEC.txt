@@ -1,48 +1,49 @@
 HV Trigger Async — Reproducible System Specification
 
 1) Purpose & Scope
-- Goal: A small, self‑hosted controller that safely “arms” and triggers a high‑voltage discharge device via a networked UI or API.
-- Constraints: Simple, robust, low‑latency; never fire unless explicitly armed; persist user configuration across power cycles.
+- Goal: A small, self‑hosted controller that safely “arms” and triggers a high‑voltage discharge device via a networked HTML UI or API.
+- Constraints: Simple, robust, low‑latency; interlock system present at both front-end and on-mcu-backend tightly integrated with routine/s responsible for pulling fire GPIO high - never fire unless explicitly armed; persist user configuration across power cycles; provide Arduino-compatible OTA firmware update capability.
 - Portability: This document defines behavior, protocols, and timing in platform‑agnostic terms so the system can be rebuilt in any language or on any MCU/SoC.
 
 2) Hardware Abstraction (Platform‑agnostic)
 - Outputs:
-  - TRIGGER_OUT: digital output, active HIGH; drives HV trigger interface through appropriate isolation.
+  - TRIGGER_OUT: digital output, active HIGH; drives HV trigger interface through appropriate isolation. Trigger is an N-channel mosfet drain-coupled via AC coupling LPF to pull the trigger pin of a 555 chip LOW upon fire command.
   - LED_READY_GREEN: ON when a control client is connected via WebSocket; otherwise used for network status (see Indicators).
   - LED_WAIT_AMBER: indicates Wi‑Fi wait/partial connectivity (see Indicators).
-  - LED_PULSE_BLUE: indicates pulse activity (mirrors TRIGGER_OUT timing; may enforce a minimum visible off‑time).
-  - LED_ARMED_RED: slow blink while armed.
+  - LED_PULSE_BLUE: indicates pulse activity (mirrors TRIGGER_OUT timing; may enforce minimum visible on & off‑time).
+  - LED_ARMED_RED: slow blink whilst armed, NOT-mirrors BLUE LED during firing events.
 - Optional Inputs: None required; an ADC may be reserved for future telemetry; treat as 0 if not available.
-- Electrical: Debounce is not required on outputs. Ensure proper isolation for HV path. LEDs may be multiplexed or separate.
+- Electrical: Debounce is not required on outputs. Ensure proper isolation for HV path. LEDs are present on pins as defined in pin_assignments.txt.
 
 3) Operational Modes & Timing
 - Fire modes:
   - single: Output a single HIGH pulse for width_ms.
-  - buzz: Emit a buzz sequence per repetition: 10 sub‑pulses; each sub‑pulse is HIGH for width_ms then LOW; sub‑pulses are separated by spacing_ms; repetitions are separated by spacing_ms.
+  - buzz: Emit a buzz sequence per repetition: 10 sub‑pulses; each sub‑pulse is HIGH for width_ms then LOW; sub‑pulses are separated by spacing_ms; repetitions are separated by repeat_interval_ms.
 - Parameters (runtime configurable, persisted):
   - width_ms: 5–100 (default 10)
   - spacing_ms: 10–100 (default 20)
   - repeat: 1–4 (default 1)
+  - repeat_interval_ms: 50-1000 (default 150)
 - Guard timing: If width_ms < 50, enforce an extra LOW delay to achieve at least 50 ms between successive HIGH operations (for visibility and power integrity).
-- Telemetry tick: ~250 ms (configurable) for periodic state broadcast.
+- Telemetry tick: ~250 ms (configurable) for periodic state broadcast to be used both for logging by external processes and for telemetry feedback display and accurate interlock operation inside web UI.
 
 4) Safety Model & State Machine
 - States: DISARMED → ARMED → FIRING → DISARMED (auto after completion).
 - Transitions:
   - DISARMED → ARMED: on Arm command; snapshot current configuration.
   - ARMED → FIRING: on Fire command; ignored if already FIRING.
-  - FIRING → DISARMED: automatically upon completion (auto‑disarm) or on explicit Disarm.
+  - FIRING → DISARMED: automatically upon completion (auto‑disarm) or on explicit Disarm by user via UI button.
 - Rules:
   - Configuration changes (mode/width/spacing/repeat) are rejected while ARMED.
   - Fire is rejected unless ARMED and not FIRING.
-  - All command results are reflected by the next telemetry frame.
+  - All command results are reflected by the next telemetry frame. Should be confirmed as such by UI software else an error state is triggered and logged, prompting user to reinitialise or ignore.
 
 5) Network Topology & Services
 - Access Point (AP): Device hosts a Wi‑Fi SoftAP, default IPv4 10.11.12.1/24.
 - Optional AP+STA: Device may also join a configured infrastructure SSID concurrently. Telemetry reports STA connectivity and IP when joined.
 - HTTP service (port 80): Serves a minimal control UI (optional; API alone is sufficient).
 - WebSocket (path /ws): Primary control channel for commands and telemetry.
-- OTA (optional): Firmware update over network (default TCP port 3232). Requires an OTA‑capable partition layout on platforms that need it.
+- OTA (can be culled if storage/memory insufficient): Firmware update over network (default TCP port 3232). Requires an OTA‑capable partition layout on platforms that need it.
 
 6) WebSocket Protocol (Canonical)
 - Transport: WebSocket, text frames, JSON payloads, no newlines in frames.
@@ -65,15 +66,15 @@ HV Trigger Async — Reproducible System Specification
   3) Fire (armed only): { "cmd": "fire" }
 - Behavior:
   - After any valid command, device pushes a fresh telemetry frame.
-  - Unknown fields are ignored; unknown commands are no‑ops.
+  - Unknown fields are ignored but buffered and made available for logging via WS; unknown commands are no‑ops.
 
 7) Indicators (Normative Behavior)
 - Network/Ready LEDs:
   - If >=1 WS client connected: LED_READY_GREEN = ON (steady), LED_WAIT_AMBER = OFF.
-  - Else if AP station count == 0: LED_WAIT_AMBER = slow blink (e.g., 500 ms); LED_READY_GREEN = OFF.
-  - Else (some AP stations, no WS): Alternate AMBER/GREEN to signal partial connectivity.
+  - Else if AP station count == 0: LED_WAIT_AMBER = slow blink (500ms on, 300ms off) LED_READY_GREEN = OFF.
+  - Else (some AP stations, no WS): Alternate AMBER/GREEN to signal partial connectivity at a rate equivalent to a 200ms on-time for each colour.
 - Armed LED:
-  - ARMED: blink ~1 Hz; DISARMED: OFF.
+  - ARMED: blink ~0.1 Hz; DISARMED: OFF. FIRING: alternates with Pulse LED; logical-NOT of Pulse LED during fire events.
 - Pulse LED:
   - Mirrors TRIGGER_OUT HIGH while firing (both single and buzz sequences).
 
@@ -84,24 +85,27 @@ HV Trigger Async — Reproducible System Specification
 
 9) UI Requirements (Optional Reference Implementation)
 - Client controls:
-  - Mode: select [single|buzz]
-  - Width: range 5..100 ms
-  - Spacing: range 10..100 ms
-  - Repeat: range 1..4
-  - Arm (gates firing), Disarm, FIRE button
+  - Mode: select [single|buzz] (radio)
+  - Width: range 5..100 ms	(slider, 10ms increments)
+  - Spacing: range 10..100 ms (slider, 5ms increments)
+  - Repeat: range 1..4 (drop-down, default 1)
+  - Arm: (gates firing)(somewhat less prominent than FIRE), coloured GREEN
+  - Disarm: (similar prominence to ARM), clears ARMED state, re-enables controls, disables FIRE button
+  - FIRE button: Prominent, central, defaults to disabled and visually reflects its enabled/disabled status. RED in colour when armed, light red when disarmed.
 - Behavior:
   - While ARMED: sliders disabled; FIRE enabled.
   - While DISARMED: sliders enabled; FIRE disabled.
-  - Bottom “status bar”: AP stations, WS status, Armed state, Mode, Width, Spacing, Repeat.
-- Optimistic UI (optional): enable FIRE immediately after sending Arm, remain consistent with telemetry.
+  - Bottom LCD-influenced “status bar”: AP stations, WS status, Armed state, Mode, Width, Spacing, Repeat.
+  - enable FIRE immediately after sending Arm, remain consistent with telemetry.
 
 10) Concurrency & Responsiveness
 - The “fire” routine must not block request processing:
   - Run pulse generation in a separate task/thread/timer/ISR that leaves the event loop responsive.
   - Broadcast state during loop ticks; avoid pushing frames inside tight timing sections.
 - Use message queues or atomic flags to communicate between network layer and timing layer.
+- It is of high importance that the UI at the web interface remain in synchronisation with the current state of the incoming telemetry, which must itself only ever reflect the true state of the control routine, else error state is reported in status bar. include checks to ensure state and value consistency/lock in a holistic manner
 
-11) OTA Update (Optional)
+11) OTA Update (Unless memory insufficient or CPU availability insufficient)
 - Service an OTA agent on TCP port 3232 (or similar) concurrently with HTTP/WS.
 - Platform‑specific: choose an OTA‑capable partition scheme (e.g., “default” A/B on ESP32) and ensure adequate free space.
 - UX: report OTA start/progress/end and errors to the serial log.
@@ -139,7 +143,7 @@ HV Trigger Async — Reproducible System Specification
 
 15) Minimal “Any‑Language” Implementation Plan
 - Step 1: Hardware Abstraction Layer (HAL)
-  - Map TRIGGER_OUT and LED pins to target platform; implement digitalWrite/read and millisecond delays.
+  - Map TRIGGER_OUT and LED pins to target platform using pin_assignments.txt if present; implement digitalWrite/read and millisecond delays.
   - Provide a non‑blocking scheduler (event loop + periodic tick + worker task for firing).
 - Step 2: Storage
   - Implement a small persistent KV store (mode, width, spacing, repeat); load on boot; write on accepted cfg updates.
