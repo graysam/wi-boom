@@ -1,0 +1,18 @@
+# Dependencies and build
+node_modules/
+build/
+.pio/
+.pioenvs/
+.vscode/
+
+# Arduino/PlatformIO artifacts
+.arduino*
+*.bin
+*.elf
+*.map
+
+# Local workspace
+wi-boom-8266/
+*.zip
+*.log
+
