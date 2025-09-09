@@ -86,7 +86,16 @@ void net_setup() {
 
   if (!served_fs) {
     server.on("/", HTTP_GET, [](AsyncWebServerRequest* req){
+      Serial.printf("HTTP GET / from %s\n", req->client()->remoteIP().toString().c_str());
       req->send_P(200, "text/html", INDEX_HTML);
+      auto& S = const_cast<DeviceState&>(state_get());
+      S.page_count++;
+    });
+  } else {
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest* req){
+      Serial.printf("HTTP GET / from %s\n", req->client()->remoteIP().toString().c_str());
+      // let serveStatic handle the actual response
+      req->redirect("/");
       auto& S = const_cast<DeviceState&>(state_get());
       S.page_count++;
     });
