@@ -16,11 +16,16 @@ void state_load_or_defaults() {
   S.page_count = 0;
   S.adc_value = 0;
 
-  S.cfg.mode = DEFAULT_MODE_BUZZ ? FireMode::Buzz : FireMode::Single;
-  S.cfg.width_ms = DEFAULT_WIDTH_MS;
-  S.cfg.spacing_ms = DEFAULT_SPACING_MS;
-  S.cfg.repeat = DEFAULT_REPEAT;
-  S.cfg.repeat_interval_ms = DEFAULT_REPEAT_INTERVAL;
+  // Try persisted config, else defaults
+  Config persisted;
+  if (!storage_load_cfg(persisted)) {
+    persisted.mode = DEFAULT_MODE_BUZZ ? FireMode::Buzz : FireMode::Single;
+    persisted.width_ms = DEFAULT_WIDTH_MS;
+    persisted.spacing_ms = DEFAULT_SPACING_MS;
+    persisted.repeat = DEFAULT_REPEAT;
+    persisted.repeat_interval_ms = DEFAULT_REPEAT_INTERVAL;
+  }
+  S.cfg = persisted;
 }
 
 const DeviceState& state_get() { return S; }

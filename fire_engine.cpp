@@ -4,7 +4,7 @@
 // Simple non-blocking state machine covering Single/Buzz sequences.
 // Enforces guard timing for visibility/power integrity.
 
-enum class FEState : uint8_t { Idle, SingleHigh, SingleLow, BuzzHigh, BuzzLow, BuzzWait, BetweenReps };
+enum class FEState : uint8_t { Idle, SingleHigh, SingleLow, BuzzHigh, BuzzLow, BetweenReps };
 static FEState F = FEState::Idle;
 static uint32_t t_deadline = 0;
 static uint8_t buzz_i = 0;      // sub-pulses (1..10)
@@ -65,18 +65,14 @@ void fire_engine_loop() {
     case FEState::BuzzHigh:
       if (int32_t(now - t_deadline) >= 0) {
         setPulse(false);
-        F = FEState::BuzzLow;
+        // Determine required LOW time between successive HIGH edges
         const uint16_t guard = (width < 50) ? (50 - width) : 0;
-        t_deadline = now + guard;
-      }
-      break;
-    case FEState::BuzzLow:
-      if (int32_t(now - t_deadline) >= 0) {
+        const uint16_t low_time = (buzz_i < 10) ? max<uint16_t>(spacing, guard) : 0;
         if (buzz_i < 10) {
-          F = FEState::BuzzWait;
-          t_deadline = now + spacing;
+          F = FEState::BuzzLow;
+          t_deadline = now + low_time;
         } else {
-          // 10 sub-pulses done in this repetition
+          // Completed 10 sub-pulses in this repetition
           if (rep_i < S.cfg.repeat) {
             F = FEState::BetweenReps;
             t_deadline = now + rep_gap;
@@ -88,9 +84,8 @@ void fire_engine_loop() {
         }
       }
       break;
-    case FEState::BuzzWait:
+    case FEState::BuzzLow:
       if (int32_t(now - t_deadline) >= 0) {
-        // next sub-pulse
         buzz_i++;
         if (buzz_i <= 10) {
           F = FEState::BuzzHigh;

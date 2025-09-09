@@ -4,6 +4,8 @@
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <FS.h>
+#include <LittleFS.h>
 #include <ArduinoJson.h>
 
 extern "C" {
@@ -19,12 +21,15 @@ extern "C" {
 
 static AsyncWebServer server(80);
 static AsyncWebSocket ws("/ws");
+static volatile uint16_t g_ws_clients = 0;
 
 static void handle_ws_event(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
   if (type == WS_EVT_CONNECT) {
-    state_set_ws_connected(true);
+    g_ws_clients = ws.count();
+    state_set_ws_connected(g_ws_clients > 0);
   } else if (type == WS_EVT_DISCONNECT) {
-    state_set_ws_connected(false);
+    g_ws_clients = ws.count();
+    state_set_ws_connected(g_ws_clients > 0);
   } else if (type == WS_EVT_DATA) {
     AwsFrameInfo *info = (AwsFrameInfo*)arg;
     if (!info->final || info->index != 0 || info->len != len || info->opcode != WS_TEXT) return;
@@ -65,12 +70,24 @@ void net_setup() {
   IPAddress mask(255,255,255,0);
   WiFi.softAPConfig(apIP, gw, mask);
   WiFi.softAP(SOFTAP_SSID, SOFTAP_PASS);
+  Serial.print(F("SoftAP IP: ")); Serial.println(apIP);
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest* req){
-    req->send_P(200, "text/html", INDEX_HTML);
-    auto& S = const_cast<DeviceState&>(state_get());
-    S.page_count++;
-  });
+  bool served_fs = false;
+  if (LittleFS.begin()) {
+    if (LittleFS.exists("/index.html")) {
+      server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+      served_fs = true;
+      Serial.println(F("Serving UI from LittleFS"));
+    }
+  }
+
+  if (!served_fs) {
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest* req){
+      req->send_P(200, "text/html", INDEX_HTML);
+      auto& S = const_cast<DeviceState&>(state_get());
+      S.page_count++;
+    });
+  }
 
   ws.onEvent(handle_ws_event);
   server.addHandler(&ws);
@@ -84,6 +101,8 @@ void net_broadcast_telemetry() {
   const auto& S = state_get();
   // Update LED_READY based on WS connection
   digitalWrite(PIN_LED_READY_GREEN, S.ws_connected ? HIGH : LOW);
+  // WAIT amber when no WS client connected
+  digitalWrite(PIN_LED_WAIT_AMBER, S.ws_connected ? LOW : HIGH);
   // Armed LED: slow blink while armed
   static uint32_t last = 0; static bool blink = false;
   if (S.armed && millis() - last > 500) { last = millis(); blink = !blink; }
@@ -98,7 +117,7 @@ void net_broadcast_telemetry() {
   // SoftAP station count
   uint8_t stations = wifi_softap_get_station_num();
   doc["wifiClients"] = stations;
-  doc["wifiConnected"] = S.ws_connected;
+  doc["wifiConnected"] = (g_ws_clients > 0);
   doc["staConnected"] = S.sta_connected;
   doc["staIP"] = S.sta_ip.toString();
   doc["adc"] = 0;
