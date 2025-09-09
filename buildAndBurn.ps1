@@ -3,7 +3,7 @@
 
 param(
   [string]$SketchDefault = 'hv_trigger_async.ino',
-  [string]$FqbnDefault   = 'esp32:esp32:esp32cam:PartitionScheme=default',
+  [string]$FqbnDefault   = 'esp32:esp32:esp32',
   [string]$BuildDir      = 'build'
 )
 

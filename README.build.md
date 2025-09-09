@@ -10,15 +10,20 @@ Scripts (preferred)
   - Prompts for sketch, FQBN (default `esp32:esp32:esp32s3`), cleans build dir, compiles, lists ports for upload, retries once on errors, and can open a serial monitor.
 
 Arduino IDE
-- Tools > Board > ESP32 Arduino > ESP32S3 Dev Module
+- ESP32 Dev Module (ESP32‑WROOM‑32):
+  - Tools > Board > ESP32 Arduino > ESP32 Dev Module
+  - Open `hv_trigger_async.ino` and Upload.
+- ESP32‑S3 Dev Module:
+  - Tools > Board > ESP32 Arduino > ESP32S3 Dev Module
   - USB CDC On Boot: Enabled
   - Upload Mode: UART0 / Hardware CDC
   - Flash Size: per module (e.g., 8MB)
-- Open `hv_trigger_async.ino` and Upload.
+  - Open `hv_trigger_async.ino` and Upload.
 
 Arduino CLI
-- Compile: `arduino-cli compile --fqbn esp32:esp32:esp32s3 hv_trigger_async.ino`
-- Upload:  `arduino-cli upload -p COM9 --fqbn esp32:esp32:esp32s3 hv_trigger_async.ino`
+- ESP32 Dev Module: `arduino-cli compile --fqbn esp32:esp32:esp32 hv_trigger_async.ino`
+- ESP32‑S3 Dev Module: `arduino-cli compile --fqbn esp32:esp32:esp32s3 hv_trigger_async.ino`
+- Upload (example): `arduino-cli upload -p COM9 --fqbn esp32:esp32:esp32 hv_trigger_async.ino`
 - Monitor: `arduino-cli monitor -p COM9 -c baudrate=115200`
 
 Connect & Use

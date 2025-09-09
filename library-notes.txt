@@ -10,7 +10,8 @@
 #   - "esp32" by Espressif (recommended 2.0.14 for current libs)
 #
 # Board selection:
-#   - ESP32S3 Dev Module (ensure correct USB CDC and PSRAM options for your module)
+#   - ESP32 Dev Module (ESP32‑WROOM‑32)
+#   - ESP32S3 Dev Module (enable USB CDC; ensure correct PSRAM options for your module)
 #
 # Notes:
 #   - UI is served from PROGMEM; no filesystem (LittleFS) required.

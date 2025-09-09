@@ -1,6 +1,19 @@
 PIN ASSIGNMENTS
 
-RIBBON
+ESP32 Dev Module (ESP32‑WROOM‑32)
+ORDER	GPIO#	COLOUR		PURPOSE
+===================================================================
+1			[Red Stripe]	Vcc
+2					Ground
+3	27				PULSE Signal (TRIGGER_OUT)
+4					[Not Assigned]
+5	26	ORANGE/AMBER	Wait; Wi‑Fi not connected
+6	25	GREEN		Ready; Wi‑Fi Connected (WS client)
+7	33	BLUE		Pulse signal active
+8	32	RED		ARMED & Ready to fire
+NO-MCU	N/A	GREEN		5V regulator active (power to MCU)
+
+Legacy Mapping (ESP32‑CAM harness)
 ORDER	GPIO#	NEW_GPIO	LED_COLOUR		PURPOSE
 ===================================================================
 1				[Red Stripe]		Vcc
@@ -12,3 +25,7 @@ ORDER	GPIO#	NEW_GPIO	LED_COLOUR		PURPOSE
 7	8	->13		BLUE			Pulse signal active
 8	9	->12		RED			ARMED & Ready to fire
 NO-MCU	N/A	n/a			GREEN			5V regulator active (power to MCU)
+
+Notes
+- Pins are defined in `config.h` and can be modified per hardware.
+- ESP32‑S3 dev kits can use the legacy mapping above by default, or update `config.h` as needed.

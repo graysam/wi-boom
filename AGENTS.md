@@ -7,10 +7,14 @@
 - `README.build.md`, `library-notes.txt`: Board, library, and flashing notes.
 
 ## Build, Test, and Development Commands
-- Arduino IDE: Board `ESP32S3 Dev Module`; enable USB CDC; install AsyncTCP, ESPAsyncWebServer, ArduinoJson. Open `hv_trigger_async.ino` and Upload.
-- Arduino CLI (example):
-  - Compile: `arduino-cli compile --fqbn esp32:esp32:esp32s3 hv_trigger_async.ino`
-  - Upload: `arduino-cli upload -p COM5 --fqbn esp32:esp32:esp32s3 hv_trigger_async.ino`
+- Arduino IDE:
+  - ESP32 Dev Module (ESP32‑WROOM‑32): select Board `ESP32 Dev Module`.
+  - ESP32‑S3 Dev Module: select Board `ESP32S3 Dev Module` and enable USB CDC.
+  - Install AsyncTCP, ESPAsyncWebServer, ArduinoJson. Open `hv_trigger_async.ino` and Upload.
+- Arduino CLI (examples):
+  - Compile (ESP32): `arduino-cli compile --fqbn esp32:esp32:esp32 hv_trigger_async.ino`
+  - Compile (ESP32‑S3): `arduino-cli compile --fqbn esp32:esp32:esp32s3 hv_trigger_async.ino`
+  - Upload: `arduino-cli upload -p COM5 --fqbn esp32:esp32:esp32 hv_trigger_async.ino`
 - Run locally: Not applicable (firmware). After flashing, join AP `Trigger-Remote` and browse `http://10.11.12.1/`.
 
 ## Coding Style & Naming Conventions

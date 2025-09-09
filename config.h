@@ -12,8 +12,28 @@ static constexpr bool WIFI_APSTA = true;
 static constexpr char STA_SSID[] = "";     // set to join infrastructure Wi‑Fi (optional)
 static constexpr char STA_PASS[] = "";
 
-// -------------------- Pin Assignments (ESP32-CAM per pin_assignments.txt) --------------------
-// Ribbon order mapping and colours:
+// -------------------- Pin Assignments --------------------
+// Default mappings are chosen to be safe on the common dev kits.
+// - For standard ESP32 Dev Module (ESP32-WROOM-32), use the provided GPIO set.
+// - For ESP32-S3 (and other variants), use a conservative default compatible with prior builds.
+// Pins are easily changed here as needed for your hardware.
+
+#if defined(CONFIG_IDF_TARGET_ESP32)
+// ESP32 Dev Module (ESP32-WROOM-32)
+// Available pins requested: GPIO27, GPIO26, GPIO25, GPIO33, GPIO32
+//  - PULSE Signal:        GPIO27
+//  - AMBER (WiFi wait):   GPIO26
+//  - GREEN (WiFi ready):  GPIO25
+//  - BLUE (Pulse active): GPIO33
+//  - RED (Armed):         GPIO32
+static constexpr uint8_t PIN_PULSE_OUT   = 27; // HV trigger pulse output (active HIGH)
+static constexpr uint8_t PIN_LED_AMBER   = 26; // AMBER = WiFi not connected
+static constexpr uint8_t PIN_LED_GREEN   = 25; // GREEN = WiFi connected/ready
+static constexpr uint8_t PIN_LED_PULSE   = 33; // BLUE = pulse active indicator
+static constexpr uint8_t PIN_LED_ARMED   = 32; // RED  = armed & ready to fire
+
+#else
+// Fallback / prior mapping (ESP32-S3 dev kits and ESP32-CAM harness used previously)
 //  - PULSE Signal:        GPIO16
 //  - AMBER (WiFi wait):   GPIO14
 //  - GREEN (WiFi ready):  GPIO15
@@ -24,7 +44,8 @@ static constexpr uint8_t PIN_LED_AMBER   = 14; // AMBER = WiFi not connected
 static constexpr uint8_t PIN_LED_GREEN   = 15; // GREEN = WiFi connected/ready
 static constexpr uint8_t PIN_LED_PULSE   = 13; // BLUE = pulse active indicator
 static constexpr uint8_t PIN_LED_ARMED   = 12; // RED  = armed & ready to fire
-// No ADC reserved on ESP32-CAM mapping
+#endif
+// No ADC reserved in current mappings
 
 // -------------------- Wi-Fi (SoftAP) --------------------
 static constexpr char WIFI_AP_SSID[]     = "Trigger-Remote";

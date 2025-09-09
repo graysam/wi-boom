@@ -183,5 +183,13 @@ HV Trigger Async — Reproducible System Specification
 18) Extensibility Notes
 - Multi‑channel outputs: replicate the Fire Engine with per‑channel configs; include channel id in WS messages.
 - Authentication: add a shared token or per‑session pairing for WS commands.
-- Alternative transports: CoAP/UDP or BLE GATT with equivalent state and command semantics.
+ - Alternative transports: CoAP/UDP or BLE GATT with equivalent state and command semantics.
 
+19) Board-Specific Pin Map (Added)
+- ESP32 Dev Module (ESP32-WROOM-32)
+  - TRIGGER_OUT = GPIO27 (active HIGH)
+  - LED_WAIT_AMBER = GPIO26
+  - LED_READY_GREEN = GPIO25
+  - LED_PULSE_BLUE = GPIO33
+  - LED_ARMED_RED = GPIO32
+  - Pins are defined in config.h and may be adjusted per hardware.
