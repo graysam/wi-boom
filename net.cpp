@@ -27,21 +27,23 @@ static void handle_ws_event(AsyncWebSocket *server, AsyncWebSocketClient *client
   if (type == WS_EVT_CONNECT) {
     g_ws_clients = ws.count();
     state_set_ws_connected(g_ws_clients > 0);
+    Serial.printf("WS: connect #%u, total=%u\n", client->id(), g_ws_clients);
   } else if (type == WS_EVT_DISCONNECT) {
     g_ws_clients = ws.count();
     state_set_ws_connected(g_ws_clients > 0);
+    Serial.printf("WS: disconnect #%u, total=%u\n", client->id(), g_ws_clients);
   } else if (type == WS_EVT_DATA) {
     AwsFrameInfo *info = (AwsFrameInfo*)arg;
     if (!info->final || info->index != 0 || info->len != len || info->opcode != WS_TEXT) return;
     // Parse JSON command
     StaticJsonDocument<256> doc;
     DeserializationError err = deserializeJson(doc, data, len);
-    if (err) return;
+    if (err) { Serial.printf("WS: parse error: %s\n", err.c_str()); return; }
 
     const char* cmd = doc["cmd"] | "";
     if (strcmp(cmd, "arm") == 0) {
       bool on = doc["on"].as<bool>();
-      state_arm(on);
+      if (state_arm(on)) Serial.printf("ARM %s\n", on?"on":"off");
     } else if (strcmp(cmd, "cfg") == 0) {
       Config c = state_get().cfg;
       if (const char* m = doc["mode"]) {
@@ -52,9 +54,10 @@ static void handle_ws_event(AsyncWebSocket *server, AsyncWebSocketClient *client
       if (doc.containsKey("repeat")) c.repeat = constrain((int)doc["repeat"], 1, 4);
       if (state_set_cfg(c)) {
         storage_save_cfg(c);
+        Serial.printf("CFG mode=%s width=%u spacing=%u repeat=%u\n", c.mode==FireMode::Single?"single":"buzz", c.width_ms, c.spacing_ms, c.repeat);
       }
     } else if (strcmp(cmd, "fire") == 0) {
-      fire_engine_trigger();
+      if (fire_engine_trigger()) Serial.println("FIRE start"); else Serial.println("FIRE rejected");
     }
     net_broadcast_telemetry();
   }

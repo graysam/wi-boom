@@ -17,7 +17,10 @@ static const char INDEX_HTML[] PROGMEM = R"html(
 <div class="row">
   <button id="arm">Arm</button>
   <button id="disarm">Disarm</button>
-  <button id="fire">Fire</button>
+  <button id="fire" disabled>Fire</button>
+  <span id="armedLbl" style="margin-left:8px;color:#a00">disarmed</span>
+  <span id="connLbl" style="margin-left:8px;color:#555">connecting…</span>
+  <span id="status"></span>
 </div>
 <div class="row">
   <label>Mode</label>
@@ -33,8 +36,8 @@ static const char INDEX_HTML[] PROGMEM = R"html(
 const ws = new WebSocket(`ws://${location.host}/ws`);
 const el = s=>document.querySelector(s);
 const send = o=>ws.readyState===1 && ws.send(JSON.stringify(o));
-ws.onopen = ()=> el('#status').textContent='connected';
-ws.onclose= ()=> el('#status').textContent='disconnected';
+ws.onopen = ()=> el('#connLbl').textContent='connected';
+ws.onclose= ()=> el('#connLbl').textContent='disconnected';
 ws.onmessage = (ev)=> {
   try { const j=JSON.parse(ev.data); if(j.type==='state'){ render(j); } } catch(e){}
 };
@@ -44,6 +47,9 @@ function render(s){
   el('#width').value = s.cfg.width;
   el('#spacing').value = s.cfg.spacing;
   el('#repeat').value = s.cfg.repeat;
+  el('#armedLbl').textContent = s.armed ? 'armed' : 'disarmed';
+  el('#armedLbl').style.color = s.armed ? '#090' : '#a00';
+  el('#fire').disabled = !s.armed;
 }
 el('#arm').onclick = ()=> send({cmd:'arm', on:true});
 el('#disarm').onclick = ()=> send({cmd:'arm', on:false});
