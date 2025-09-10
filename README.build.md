@@ -23,7 +23,8 @@ Arduino IDE
 Arduino CLI
 - ESP32 Dev Module: `arduino-cli compile --fqbn esp32:esp32:esp32 hv_trigger_async.ino`
 - ESP32‑S3 Dev Module: `arduino-cli compile --fqbn esp32:esp32:esp32s3 hv_trigger_async.ino`
-- Upload (example): `arduino-cli upload -p COM9 --fqbn esp32:esp32:esp32 hv_trigger_async.ino`
+- Upload (serial example): `arduino-cli upload -p COM9 --fqbn esp32:esp32:esp32 hv_trigger_async.ino`
+- Upload (OTA example): `arduino-cli upload -p 10.11.12.1:3232 --fqbn esp32:esp32:esp32 hv_trigger_async.ino`
 - Monitor: `arduino-cli monitor -p COM9 -c baudrate=115200`
 
 Connect & Use
@@ -33,3 +34,4 @@ Connect & Use
 Notes
 - UI is served from PROGMEM; no filesystem needed.
 - WebSocket at `/ws` sends telemetry ~every 250 ms and after commands. See `docs/WS_API.md`.
+- OTA updates: device listens on TCP/3232; ensure your host and device share a network (AP or STA). In IDE, a Network Port may appear.
