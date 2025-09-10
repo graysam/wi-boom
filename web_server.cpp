@@ -73,11 +73,27 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html>
  #fire.enabled{opacity:1;}
  .row{display:flex;gap:12px;justify-content:center;}
  button.small{padding:12px 16px;border:0;border-radius:8px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);font-weight:600;}
- .statusbar{position:fixed;left:0;right:0;bottom:0;height:32px;background:#0b1021;color:#e8f0ff;display:flex;align-items:center;justify-content:center;font:14px/1.2 ui-monospace,Consolas,monospace;}
+ .statusbar{position:fixed;left:0;right:0;bottom:28px;height:34px;background:#0b1021;color:#e8f0ff;display:flex;align-items:center;justify-content:center;font:14px/1.2 ui-monospace,Consolas,monospace;gap:16px}
  .statusbar span{margin:0 8px;}
+ .infobar{position:fixed;left:0;right:0;bottom:0;height:28px;background:rgba(11,16,33,.9);color:#c8d6ff;display:flex;align-items:center;justify-content:center;font:12px/1.2 ui-monospace,Consolas,monospace}
+ .ctrl{display:flex;align-items:center;gap:12px;margin-top:12px}
+ .val{min-width:64px;text-align:center;padding:6px 8px;border-radius:8px;background:#0b1021;color:#e8f0ff;font-weight:700}
+ button.small.active{background:#0b1021;color:#e8f0ff}
+ .led{width:14px;height:14px;border-radius:50%;background:#711;box-shadow:0 0 0 2px rgba(255,255,255,.1) inset,0 0 8px rgba(0,0,0,.4)}
+ .green{background:#19c37d}
+ .amber{background:#ffb000}
+ .red{background:#ff4d4d}
+ .blink{animation:blink 1s infinite ease-in-out}
+ @keyframes blink{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
+ .mode{font-weight:800}
+ .triplet{font-weight:700}
+ .veil{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;letter-spacing:.1em}
+ .hidden{display:none}
+ .sp{opacity:.7}
 </style>
 </head>
 <body>
+<div id="veil" class="veil hidden">RECONNECTING...</div>
 <div class="wrap">
   <div class="controls">
     <label>Mode
@@ -86,9 +102,9 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html>
         <option value="buzz">Buzz</option>
       </select>
     </label>
-    <label>PULSE WIDTH (ms) <input id="width" type="range" min="5" max="100" value="10"></label>
-    <label>BUZZ SPACING (ms) <input id="spacing" type="range" min="10" max="100" value="20"></label>
-    <label>REPETITIONS <input id="repeat" type="range" min="1" max="4" value="1"></label>
+    <div class="ctrl"><div class="val" id="widthVal">10ms</div><label style="flex:1">PULSE WIDTH (ms) <input id="width" type="range" min="5" max="100" value="10"></label></div>
+    <div class="ctrl"><div class="val" id="spacingVal">20ms</div><label style="flex:1">BUZZ SPACING (ms) <input id="spacing" type="range" min="10" max="100" value="20"></label></div>
+    <div class="ctrl"><div class="val" id="repeatVal">1x</div><label style="flex:1">REPETITIONS <input id="repeat" type="range" min="1" max="4" value="1"></label></div>
   </div>
 
   <button id="fire" disabled>FIRE</button>
@@ -98,58 +114,95 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html>
   </div>
 </div>
 
-<div class="statusbar" id="status">AP: <span id="ap">-</span> WS: <span id="ws">-</span> Armed: <span id="armed">-</span> Mode: <span id="smode">-</span> W:<span id="swidth">-</span> S:<span id="sspace">-</span> R:<span id="srep">-</span></div>
+<div class="statusbar">
+  <span class="led red" id="led-ws" title="WebSocket"></span>
+  <span class="led red" id="led-armed" title="Armed"></span>
+  <span class="mode" id="modeLabel">SINGLE-SHOT</span>
+  <span class="triplet" id="triplet">10/20/1</span>
+  <span class="sp" id="apName">-</span>
+</div>
+<div class="infobar" id="infobar">Idle.</div>
 
 <script>
 (()=>{
   const $=id=>document.getElementById(id);
   const mode=$("mode"), width=$("width"), spacing=$("spacing"), repeat=$("repeat");
+  const widthVal=$("widthVal"), spacingVal=$("spacingVal"), repeatVal=$("repeatVal");
   const fire=$("fire"), arm=$("arm"), disarm=$("disarm");
-  const ap=$("ap"), wsI=$("ws"), armedI=$("armed"), smode=$("smode"), swidth=$("swidth"), sspace=$("sspace"), srep=$("srep");
-  const state={armed:false};
+  const ledWs=$("led-ws"), ledArmed=$("led-armed"), modeLabel=$("modeLabel"), triplet=$("triplet"), apName=$("apName"), infobar=$("infobar"), veil=$("veil");
+  const state={armed:false, connected:false};
   const proto=location.protocol==="https:"?"wss":"ws";
-  const ws=new WebSocket(`${proto}://${location.host}/ws`);
+  let ws=null; let reconnectTimer=null;
 
+  function cls(el, on, name){ el.classList[on?"add":"remove"](name); }
+  function setLed(el, color, blink){ el.className = `led ${color}` + (blink?" blink":""); }
   function setArmedUI(on){
     state.armed=!!on;
     if(!state.armed){
       fire.disabled=true;fire.classList.remove("enabled");
       [mode,width,spacing,repeat].forEach(el=>el.disabled=false);
+      cls(arm,true,"active"); arm.disabled=false; cls(disarm,false,"active"); disarm.disabled=true;
+      setLed(ledArmed, "red", false);
     }else{
       fire.disabled=false;fire.classList.add("enabled");
       [mode,width,spacing,repeat].forEach(el=>el.disabled=true);
+      cls(arm,false,"active"); arm.disabled=true; cls(disarm,true,"active"); disarm.disabled=false;
+      setLed(ledArmed, "amber", true);
     }
-    armedI.textContent = state.armed?"yes":"no";
   }
 
-  ws.addEventListener("message",ev=>{
-    try{
-      const m=JSON.parse(ev.data);
-      if(m.type==="state"){
-        setArmedUI(m.armed);
-        mode.value=m.cfg.mode;
-        width.value=m.cfg.width;
-        spacing.value=m.cfg.spacing;
-        repeat.value=m.cfg.repeat;
-        ap.textContent = String(m.wifiClients||0);
-        wsI.textContent = m.wifiConnected?"yes":"no";
-        smode.textContent = m.cfg.mode;
-        swidth.textContent = m.cfg.width;
-        sspace.textContent = m.cfg.spacing;
-        srep.textContent = m.cfg.repeat;
-      }
-    }catch(e){}
-  });
+  function updateValueDisplays(){
+    widthVal.textContent = `${width.value}ms`;
+    spacingVal.textContent = `${spacing.value}ms`;
+    repeatVal.textContent = `${repeat.value}x`;
+    triplet.textContent = `${width.value}/${spacing.value}/${repeat.value}`;
+  }
+
+  function applyState(m){
+    setArmedUI(m.armed);
+    mode.value=m.cfg.mode;
+    width.value=m.cfg.width;
+    spacing.value=m.cfg.spacing;
+    repeat.value=m.cfg.repeat;
+    modeLabel.textContent = m.cfg.mode==="buzz"?"BUZZ":"SINGLE-SHOT";
+    apName.textContent = m.apSSID || "-";
+    updateValueDisplays();
+  }
 
   function sendCfg(){
-    if(state.armed) return;
+    if(!ws || ws.readyState!==1 || state.armed) return;
     ws.send(JSON.stringify({cmd:"cfg",mode:mode.value,width:+width.value,spacing:+spacing.value,repeat:+repeat.value}));
   }
 
-  [mode,width,spacing,repeat].forEach(el=>el.addEventListener("input",sendCfg));
-  arm.onclick=()=>{ ws.send(JSON.stringify({cmd:"arm",on:true})); setArmedUI(true); };
-  disarm.onclick=()=>{ ws.send(JSON.stringify({cmd:"arm",on:false})); setArmedUI(false); };
-  fire.onclick=()=>ws.send(JSON.stringify({cmd:"fire"}));
+  [mode,width,spacing,repeat].forEach(el=>{
+    el.addEventListener("input",()=>{ updateValueDisplays(); sendCfg(); });
+  });
+  arm.onclick=()=>{ if(ws && ws.readyState===1) ws.send(JSON.stringify({cmd:"arm",on:true})); };
+  disarm.onclick=()=>{ if(ws && ws.readyState===1) ws.send(JSON.stringify({cmd:"arm",on:false})); };
+  fire.onclick=()=>{ if(ws && ws.readyState===1) ws.send(JSON.stringify({cmd:"fire"})); };
+
+  function connectWs(){
+    clearTimeout(reconnectTimer);
+    setLed(ledWs, "amber", true); veil.classList.remove("hidden"); infobar.textContent = "Connecting...";
+    try { ws && ws.close && ws.close(); } catch(e){}
+    ws = new WebSocket(`${proto}://${location.host}/ws`);
+    ws.onopen = ()=>{ state.connected=true; setLed(ledWs, "green", false); veil.classList.add("hidden"); infobar.textContent = "Connected."; };
+    ws.onmessage = ev=>{
+      try{
+        const m=JSON.parse(ev.data);
+        if(m.type==="state"){ applyState(m); }
+      }catch(e){ /* ignore */ }
+    };
+    function schedule(){
+      if(reconnectTimer) return;
+      reconnectTimer = setTimeout(()=>{ reconnectTimer=null; connectWs(); }, 1000);
+    }
+    ws.onerror = ()=>{ state.connected=false; setLed(ledWs, "red", false); veil.classList.remove("hidden"); infobar.textContent = "Connection error. Retrying..."; schedule(); };
+    ws.onclose = ()=>{ state.connected=false; setLed(ledWs, "red", false); veil.classList.remove("hidden"); infobar.textContent = "Disconnected. Retrying..."; schedule(); };
+  }
+
+  updateValueDisplays();
+  connectWs();
 })();
 </script>
 </body>
@@ -394,6 +447,8 @@ void broadcastState() {
   cfg["repeat"]  = g_cfg.repeat;
   doc["wifiClients"] = WiFi.softAPgetStationNum();
   doc["wifiConnected"] = (ws.count() > 0);
+  doc["wsCount"] = ws.count();
+  doc["apSSID"] = WIFI_AP_SSID;
   doc["staConnected"] = (WiFi.getMode() == WIFI_AP_STA && WiFi.status() == WL_CONNECTED);
   doc["staIP"] = (WiFi.getMode() == WIFI_AP_STA && WiFi.status() == WL_CONNECTED)
                    ? WiFi.localIP().toString() : String("");
@@ -403,3 +458,4 @@ void broadcastState() {
   const size_t n = serializeJson(doc, out, sizeof(out));
   ws.textAll(out, n);
 }
+
