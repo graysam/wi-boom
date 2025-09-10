@@ -26,7 +26,8 @@ function Ensure-CoreEsp32 {
 }
 
 function Scan-SketchesAndBinaries {
-  $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+  # Use script directory; $MyInvocation.MyCommand.Path is null inside functions
+  $root = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
   Push-Location $root
   $sketches = Get-ChildItem -Filter *.ino -Name | Sort-Object
   $binDirs = @()

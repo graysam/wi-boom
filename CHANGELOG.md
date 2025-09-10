@@ -10,6 +10,9 @@ All notable changes to this project are documented here. Versions follow `MAJOR.
 - feat: Add `tools/test_ws.ps1` WebSocket regression test (two‑client sync, arm/cfg/fire).
 - docs: Update README, build notes, and WS_API with new fields (`apSSID`, `wsCount`) and OTA instructions.
 
+## v0.1.3
+- fix(build): Windows PowerShell build script now uses `$PSScriptRoot` to resolve the script directory, avoiding a null `$MyInvocation.MyCommand.Path` inside functions.
+
 ## v0.1.1
 - feat(esp32): Add ESP32 Dev Module (ESP32‑WROOM‑32) pin map; keep ESP32‑S3 compatibility.
 - docs: Update build scripts and notes for both ESP32 and ESP32‑S3.
