@@ -351,7 +351,14 @@ static void onIndex(AsyncWebServerRequest *req) {
   g_pageLoadCount++;
   Serial.printf("HTTP: GET / from %s\n", req->client()->remoteIP().toString().c_str());
   AsyncWebServerResponse *res = req->beginResponse_P(200, "text/html; charset=utf-8", INDEX_HTML);
-  res->addHeader("Content-Security-Policy", "default-src 'self'; style-src 'unsafe-inline' 'self';");
+  // Allow inline script (UI is embedded) and WebSocket connections
+  res->addHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'unsafe-inline' 'self'; "
+    "connect-src 'self' ws: wss:;"
+  );
   req->send(res);
 }
 
