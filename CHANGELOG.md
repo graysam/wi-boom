@@ -1,6 +1,15 @@
 # Changelog
 
-All notable changes to this project are documented here. Versions follow `MAJOR.MINOR.PATCH`.
+All notable changes to this project are documented here. Versions generally follow `MAJOR.MINOR.PATCH`.
+
+## v1.21a — 2025-09-18
+- Hardware: Initial KiCad project added; prototype hardware validated against firmware.
+- Firmware: Stable async WebSocket control, telemetry, and pulse logic performing well in field tests.
+- Docs: Cleanup for readability and encoding fixes; expanded build notes and hardware overview.
+- Repo: Added broader `.gitignore`; removed accidental `node_modules` from tracking.
+
+## v0.1.3
+- fix(build): Windows PowerShell build script now uses `$PSScriptRoot` to resolve the script directory, avoiding a null `$MyInvocation.MyCommand.Path` inside functions.
 
 ## v0.1.2
 - feat(ui): Status bar rework with WS/Armed LEDs, compact W/S/R values, and AP name.
@@ -9,9 +18,6 @@ All notable changes to this project are documented here. Versions follow `MAJOR.
 - fix(ui): Content‑Security‑Policy allows inline script and ws/wss connect.
 - feat: Add `tools/test_ws.ps1` WebSocket regression test (two‑client sync, arm/cfg/fire).
 - docs: Update README, build notes, and WS_API with new fields (`apSSID`, `wsCount`) and OTA instructions.
-
-## v0.1.3
-- fix(build): Windows PowerShell build script now uses `$PSScriptRoot` to resolve the script directory, avoiding a null `$MyInvocation.MyCommand.Path` inside functions.
 
 ## v0.1.1
 - feat(esp32): Add ESP32 Dev Module (ESP32‑WROOM‑32) pin map; keep ESP32‑S3 compatibility.

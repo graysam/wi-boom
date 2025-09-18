@@ -1,6 +1,6 @@
-# HV Trigger Async (ESP32 / ESP32‑S3)
+# HV Trigger Async (ESP32 / ESP32-S3)
 
-Firmware for ESP32 family boards hosting a minimal web UI to safely arm and trigger a high‑voltage initiator. AsyncTCP + ESPAsyncWebServer power a WebSocket control channel; configuration persists via Preferences.
+Firmware for ESP32 boards hosting a minimal web UI to safely arm and trigger a high‑voltage initiator. AsyncTCP + ESPAsyncWebServer power a WebSocket control channel; configuration persists via Preferences.
 
 ## Features
 - SoftAP: `Trigger-Remote` / `lollipop`, IP `10.11.12.1`.
@@ -9,7 +9,7 @@ Firmware for ESP32 family boards hosting a minimal web UI to safely arm and trig
 - Pulse controls: mode `single` or `buzz`, width, spacing, repeat.
 - Hardware LEDs: amber/green (network/WS), red (armed), blue (pulse).
 - Status bar: WS and Armed LEDs, mode label (BUZZ/SINGLE‑SHOT), compact `W/S/R` values (e.g., `31/38/3`), AP name; reconnect overlay while WS is down.
-- OTA updates via ArduinoOTA (TCP/3232) — update while the app is running.
+- OTA via ArduinoOTA (TCP/3232) — update while the app is running.
 - Verbose Serial logs for boot, prefs, HTTP, WS, and actions.
 
 ## Quickstart
@@ -36,7 +36,7 @@ Firmware for ESP32 family boards hosting a minimal web UI to safely arm and trig
 ## Build & Tools
 - Scripts: see above. CLI fallback in `README.build.md`.
 - Serial monitor: `arduino-cli monitor -p COMX -c baudrate=115200`.
-- WebSocket test (PowerShell): `powershell -ExecutionPolicy Bypass -File tools\test_ws.ps1`
+- WebSocket test (PowerShell): `powershell -ExecutionPolicy Bypass -File tools\\test_ws.ps1`
 
 ## API Reference
 See `docs/WS_API.md` for WebSocket message formats, examples, and flows.
@@ -46,6 +46,16 @@ See `docs/WS_API.md` for WebSocket message formats, examples, and flows.
 - `web_server.cpp/.h`: AP setup, async server, WebSocket, inline UI, actions.
 - `config.h`: pins, SoftAP settings, defaults; edit pins here if needed.
 
+## Hardware
+- KiCad project resides in `hardware_kicad/` (schematics `*.kicad_sch`, board `*.kicad_pcb`).
+- Generated artifacts (plots, fabrication outputs, iBOM) are currently included from prototyping; going forward we’ll prefer attaching these to GitHub releases rather than committing bulk outputs.
+- For fabrication, open in KiCad 7/8 and regenerate plots/GERBER/Drill files as needed. Additional notes may be present in `hardware_kicad/`.
+
 ## Safety
 Change the default SoftAP password before field use. Treat the trigger output as live hardware — validate with a dummy load first.
+
+## Release v1.21a
+- Prototype hardware integrated and tested with the firmware.
+- Repo/docs tidy-up; encoding fixes and clearer setup notes.
+- Tag: `v1.21a` marks the working prototype snapshot.
 

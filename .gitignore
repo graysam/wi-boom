@@ -1,3 +1,21 @@
 # Build outputs
 /build/
-/hardware_kicad/detonator trigger-backups
+
+# IDE/OS
+/.vscode/
+/.idea/
+*.log
+*.tmp
+*.DS_Store
+
+# Node (not used for firmware; keep out of repo)
+/node_modules/
+
+# KiCad generated/caches
+/hardware_kicad/*-backups/
+/hardware_kicad/fp-info-cache
+/hardware_kicad/*.kicad_prl
+/hardware_kicad/bom/
+/hardware_kicad/plotter outputs/
+/hardware_kicad/**/*.zip
+/hardware_kicad/**/*.7z

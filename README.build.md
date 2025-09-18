@@ -2,7 +2,7 @@
 
 Recommended Stack
 - ESP32 core: 2.0.14 (stable with current Async libs). Newer 3.x cores may require updated ESP32Async libraries.
-- Libraries: Async TCP (ESP32Async), ESP Async WebServer, ArduinoJson (see `library-notes.txt`).
+- Libraries: AsyncTCP, ESPAsyncWebServer, ArduinoJson (see `library-notes.txt`).
 
 Scripts (preferred)
 - Windows: `buildAndBurn.ps1` (or the `buildAndBurn.bat` wrapper)

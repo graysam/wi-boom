@@ -38,3 +38,4 @@
 - Change default SoftAP password in `config.h` before field use.
 - Review pin mappings for your ESP32‑S3 variant; avoid driving unintended lines.
 - Treat the HV trigger output as live hardware—test with dummy loads first.
+
