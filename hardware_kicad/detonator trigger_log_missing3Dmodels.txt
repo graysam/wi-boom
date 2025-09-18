@@ -1,5 +1,0 @@
-Can not find model defined with enviroment variable (C:\Program Files\KiCad\share\kicad\modules\packages3d :
-kicad-embed://Potentiometer_RK163.wrl
-Can not find model defined with enviroment variable (C:\Program Files\KiCad\share\kicad\modules\packages3d :
-kicad-embed://Push_Button_W12mm.wrl
-[('RV1', 'kicad-embed://Potentiometer_RK163.wrl'), ('SW1', 'kicad-embed://Push_Button_W12mm.wrl'), ('T1', 'C:\\Program Files\\KiCad\\9.0\\share\\kicad\\3dmodels\\Connector.3dshapes\\Banana_Jack_2Pin.step'), ('J3', 'C:\\Program Files\\KiCad\\9.0\\share\\kicad\\3dmodels\\Connector.3dshapes\\Banana_Jack_2Pin.step')]
