@@ -1,0 +1,17 @@
+{
+  "jobs": [],
+  "meta": {
+    "version": 1
+  },
+  "outputs": [
+    {
+      "description": "",
+      "id": "14e0dcf8-d3b9-4926-ac78-31223903fa8b",
+      "only": [],
+      "settings": {
+        "output_path": "detonator"
+      },
+      "type": "folder"
+    }
+  ]
+}

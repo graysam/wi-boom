@@ -1,0 +1,4 @@
+    - Compile: arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc,UploadMode=default .
+      - Upload: arduino-cli upload -p COM9 --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc,UploadMode=default
+.
+      - Monitor: arduino-cli monitor -p COM9 -c baudrate=115200

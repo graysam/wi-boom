@@ -1,0 +1,23 @@
+Arduino IDE MEtatdata location and example for CLI Building:
+C:\Users\Sam\AppData\Local\Temp\arduino-language-server1007470872\build
+
+"C:\Users\Sam\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.14\tools\partitions\boot_app0.bin"
+
+{
+  "additionalFiles": "",
+  "builtInLibrariesFolders": "C:\\Users\\Sam\\AppData\\Local\\Arduino15\\libraries",
+  "compiler.optimization_flags": "-Os",
+  "customBuildProperties": "build.warn_data_percentage=75",
+  "fqbn": "esp32:esp32:esp32s3:UploadSpeed=921600,USBMode=hwcdc,CDCOnBoot=default,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=240,FlashMode=qio,FlashSize=16M,PartitionScheme=default,DebugLevel=none,PSRAM=enabled,LoopCore=1,EventsCore=1,EraseFlash=none,JTAGAdapter=default",
+  "hardwareFolders": "c:\\Users\\Sam\\AppData\\Local\\Arduino15\\packages",
+  "otherLibrariesFolders": "u:\\sam\\Documents\\Arduino\\libraries",
+  "sketchLocation": "U:\\sam\\Documents\\Arduino\\recovery_sketch"
+}
+
+
+esp32:esp32:esp32s3:UploadSpeed=921600,USBMode=hwcdc,CDCOnBoot=default,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=240,FlashMode=qio,FlashSize=16M,PartitionScheme=default,DebugLevel=none,PSRAM=enabled,LoopCore=1,EventsCore=1,EraseFlash=none,JTAGAdapter=default"
+
+compiler.optimization_flags": "-Os
+
+
+

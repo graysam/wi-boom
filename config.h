@@ -8,7 +8,7 @@
 // -------------------- Wi-Fi Mode --------------------
 // When true, device runs in AP+STA mode and attempts to join STA_SSID/STA_PASS
 // while also broadcasting its own SoftAP. When false, AP-only.
-static constexpr bool WIFI_APSTA = true;
+static constexpr bool WIFI_APSTA = false;
 static constexpr char STA_SSID[] = "TimeBecomesALoop";     // set to join infrastructure Wi‑Fi (optional)
 static constexpr char STA_PASS[] = "lollipop";
 
@@ -20,17 +20,17 @@ static constexpr char STA_PASS[] = "lollipop";
 
 #if defined(CONFIG_IDF_TARGET_ESP32)
 // ESP32 Dev Module (ESP32-WROOM-32)
-// Available pins requested: GPIO27, GPIO26, GPIO25, GPIO33, GPIO32
-//  - PULSE Signal:        GPIO27
-//  - AMBER (WiFi wait):   GPIO26
-//  - GREEN (WiFi ready):  GPIO25
-//  - BLUE (Pulse active): GPIO33
-//  - RED (Armed):         GPIO32
-static constexpr uint8_t PIN_PULSE_OUT   = 27; // HV trigger pulse output (active HIGH)
-static constexpr uint8_t PIN_LED_AMBER   = 26; // AMBER = WiFi not connected
-static constexpr uint8_t PIN_LED_GREEN   = 25; // GREEN = WiFi connected/ready
-static constexpr uint8_t PIN_LED_PULSE   = 33; // BLUE = pulse active indicator
-static constexpr uint8_t PIN_LED_ARMED   = 32; // RED  = armed & ready to fire
+
+//  - PULSE Signal:        GPIO26
+//  - AMBER (WiFi wait):   GPIO25
+//  - GREEN (WiFi ready):  GPIO33
+//  - BLUE (Pulse active): GPIO32
+//  - RED (Armed):         GPIO27
+static constexpr uint8_t PIN_PULSE_OUT   = 26; // HV trigger pulse output (active HIGH)
+static constexpr uint8_t PIN_LED_AMBER   = 25; // AMBER = WiFi not connected
+static constexpr uint8_t PIN_LED_GREEN   = 33; // GREEN = WiFi connected/ready
+static constexpr uint8_t PIN_LED_PULSE   = 32; // BLUE = pulse active indicator
+static constexpr uint8_t PIN_LED_ARMED   = 27; // RED  = armed & ready to fire
 
 #else
 // Fallback / prior mapping (ESP32-S3 dev kits and ESP32-CAM harness used previously)
