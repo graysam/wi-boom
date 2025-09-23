@@ -29,6 +29,7 @@
 
   function setArmed(on){
     armed=!!on;
+    document.body.classList.toggle('armed', armed);
     if(armed){
       led($("ledArmed"),'amber',true);
       fire.disabled=false; fire.classList.add('enabled');
@@ -126,4 +127,3 @@
   updateVals();
   connect();
 })();
-

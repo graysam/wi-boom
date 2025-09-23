@@ -8,13 +8,14 @@
   <title>PeRci</title>
   <link rel="preload" as="script" href="app.js">
   <style>
-    html,body{height:100%;margin:0;overflow:hidden;background:#0b1021;color:#e8f0ff;font:14px/1.35 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    :root{ --brandW: 72px; --vspace: clamp(4px, 1.4vh, 12px); --gap: clamp(6px, 1.2vh, 14px); --bg:#0f1730; --panel:#151e3a; --bar:#0a132a }
+    html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:#e8f0ff;font:14px/1.35 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
     .wrap{display:flex;flex-direction:column;min-height:100%;padding:8px 10px 66px}
 
     /* Top control square layout */
     .topbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
-    .sq{width:50vw;height:50vw;max-width:calc(50% - 4px);max-height:50vw;border-radius:14px;background:#11162d;box-shadow:0 4px 16px rgba(0,0,0,.28);overflow:hidden}
+    .sq{width:100%;aspect-ratio:1/1;border-radius:14px;background:var(--panel);box-shadow:0 4px 16px rgba(0,0,0,.28);overflow:hidden}
     .leftstack{display:flex;flex-direction:column}
     .leftstack .half{flex:1 1 50%;display:flex;align-items:center;justify-content:center}
     .btn{width:100%;height:100%;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:#cfe3ff;font-weight:900;letter-spacing:.08em;cursor:pointer}
@@ -30,29 +31,33 @@
     @keyframes breathe{0%{box-shadow:0 0 0 rgba(255,77,77,0)}50%{box-shadow:0 0 0 10px rgba(255,77,77,.12)}100%{box-shadow:0 0 0 rgba(255,77,77,0)}}
 
     /* Controls panel: compact, inline values */
-    .panel{width:100%;background:#11162d;border-radius:14px;padding:10px;margin:8px 0;box-shadow:0 4px 16px rgba(0,0,0,.28)}
-    .row{display:grid;grid-template-columns:110px 1fr auto;gap:8px;align-items:center;margin:4px 0}
+    .panel{width:100%;background:var(--panel);border-radius:14px;padding:clamp(8px,1.2vh,14px);margin:8px 0;box-shadow:0 4px 16px rgba(0,0,0,.28)}
+    .row{display:grid;grid-template-columns:110px 1fr auto;gap:var(--gap);align-items:center;margin:var(--vspace) 0}
     .row label{color:#9fb6ff;font-weight:700}
     input[type=range]{width:100%;height:26px}
     .val{min-width:54px;text-align:center;padding:5px 8px;border-radius:8px;background:#0b1021;color:#e8f0ff;font-weight:800}
     .hint{opacity:.65}
 
     /* Status bar with compact logo */
-    .statusbar{position:fixed;left:0;right:0;bottom:24px;height:34px;background:#0b1021;color:#e8f0ff;display:flex;align-items:center;justify-content:center;font:12px/1.2 ui-monospace,Consolas,monospace;gap:14px;padding:0 8px}
-    .statusbar .left{position:absolute;left:8px;display:flex;align-items:center;gap:8px}
-    .logo{height:22px;display:block}
+    .statusbar{position:fixed;left:0;right:0;bottom:24px;height:34px;background:var(--bar);color:#e8f0ff;display:flex;align-items:center;justify-content:center;font:12px/1.2 ui-monospace,Consolas,monospace;gap:14px;padding:0 calc(8px + var(--brandW)) 0 8px}
+    .brand{position:fixed;left:8px;bottom:0;height:58px;width:var(--brandW);display:flex;align-items:center;justify-content:center}
+    .brand img{height:58px;display:block}
     .led{width:11px;height:11px;border-radius:50%;background:#711;box-shadow:0 0 0 2px rgba(255,255,255,.06) inset,0 0 6px rgba(0,0,0,.35)}
     .green{background:#19c37d}
     .amber{background:#ffb000}
     .red{background:#ff4d4d}
     .blink{animation:blink 1s infinite ease-in-out}
     @keyframes blink{0%{opacity:.55}50%{opacity:1}100%{opacity:.55}}
-    .infobar{position:fixed;left:0;right:0;bottom:0;height:24px;background:#0b0f22;color:#9fb6ff;display:flex;align-items:center;justify-content:center;font:11px/1.2 ui-monospace,Consolas,monospace}
+    .infobar{position:fixed;left:0;right:0;bottom:0;height:24px;background:#0c1531;color:#9fb6ff;display:flex;align-items:center;justify-content:center;font:11px/1.2 ui-monospace,Consolas,monospace;padding-left:calc(8px + var(--brandW))}
 
     /* Floating settings gear */
-    .gear{position:fixed;right:10px;bottom:66px;width:34px;height:34px;border-radius:50%;background:#11162d;border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.28);color:#cfe3ff}
+    .gear{position:fixed;right:10px;bottom:66px;width:34px;height:34px;border-radius:50%;background:var(--panel);border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.28);color:#cfe3ff;z-index:1001}
     .gear svg{width:18px;height:18px;display:block}
     .gear:active{filter:brightness(1.1)}
+
+    /* Veil overlay */
+    .veil{position:fixed;inset:0;background:rgba(10,16,33,.72);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;letter-spacing:.12em;z-index:1000;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+    .hidden{display:none}
 
     /* Prevent accidental zoom/scroll and handle safe areas */
     @supports(padding:max(env(safe-area-inset-bottom))){ .wrap{padding-bottom:calc(66px + env(safe-area-inset-bottom))} }
@@ -84,15 +89,18 @@
     </div>
   </div>
 
+  <div class="brand"><img id="logo" alt="PeRci"></div>
   <div class="statusbar">
-    <div class="left"><img id="logo" class="logo" alt="PeRci"><span class="hint" id="apName">AP</span></div>
+    <span class="hint" id="apName">AP</span>
     <span><span class="led red" id="ledWs"></span> WS</span>
     <span><span class="led red" id="ledArmed"></span> ARMED</span>
   </div>
   <div class="infobar" id="infobar">Idle.</div>
 
   <a class="gear" href="/admin" aria-label="Settings">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm7.94 3.06-.82-.2a7.9 7.9 0 0 0-.6-1.46l.49-.68c.4-.55.34-1.31-.15-1.8l-.78-.78a1.4 1.4 0 0 0-1.8-.15l-.68.49c-.46-.22-.95-.43-1.46-.6l-.2-.82A1.4 1.4 0 0 0 12.8 3h-1.6a1.4 1.4 0 0 0-1.36 1.06l-.2.82c-.51.17-1 .38-1.46.6l-.68-.49a1.4 1.4 0 0 0-1.8.15l-.78.78c-.49.49-.55 1.25-.15 1.8l.49.68c-.22.46-.43.95-.6 1.46l-.82.2A1.4 1.4 0 0 0 3 11.2v1.6c0 .65.44 1.22 1.06 1.36l.82.2c.17.51.38 1 .6 1.46l-.49.68c-.4.55-.34 1.31.15 1.8l.78.78c.49.49 1.25.55 1.8.15l.68-.49c.46.22.95.43 1.46.6l.2.82c.14.62.71 1.06 1.36 1.06h1.6c.65 0 1.22-.44 1.36-1.06l.2-.82c.51-.17 1-.38 1.46-.6l.68.49c.55.4 1.31.34 1.8-.15l.78-.78c.49-.49.55-1.25.15-1.8l-.49-.68c.22-.46.43-.95.6-1.46l.82-.2c.62-.14 1.06-.71 1.06-1.36v-1.6c0-.65-.44-1.22-1.06-1.36ZM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="24" height="24" viewBox="0 0 48 48">
+<path fill="#607D8B" d="M39.6,27.2c0.1-0.7,0.2-1.4,0.2-2.2s-0.1-1.5-0.2-2.2l4.5-3.2c0.4-0.3,0.6-0.9,0.3-1.4L40,10.8c-0.3-0.5-0.8-0.7-1.3-0.4l-5,2.3c-1.2-0.9-2.4-1.6-3.8-2.2l-0.5-5.5c-0.1-0.5-0.5-0.9-1-0.9h-8.6c-0.5,0-1,0.4-1,0.9l-0.5,5.5c-1.4,0.6-2.7,1.3-3.8,2.2l-5-2.3c-0.5-0.2-1.1,0-1.3,0.4l-4.3,7.4c-0.3,0.5-0.1,1.1,0.3,1.4l4.5,3.2c-0.1,0.7-0.2,1.4-0.2,2.2s0.1,1.5,0.2,2.2L4,30.4c-0.4,0.3-0.6,0.9-0.3,1.4L8,39.2c0.3,0.5,0.8,0.7,1.3,0.4l5-2.3c1.2,0.9,2.4,1.6,3.8,2.2l0.5,5.5c0.1,0.5,0.5,0.9,1,0.9h8.6c0.5,0,1-0.4,1-0.9l0.5-5.5c1.4-0.6,2.7-1.3,3.8-2.2l5,2.3c0.5,0.2,1.1,0,1.3-0.4l4.3-7.4c0.3-0.5,0.1-1.1-0.3-1.4L39.6,27.2z M24,35c-5.5,0-10-4.5-10-10c0-5.5,4.5-10,10-10c5.5,0,10,4.5,10,10C34,30.5,29.5,35,24,35z"></path><path fill="#455A64" d="M24,13c-6.6,0-12,5.4-12,12c0,6.6,5.4,12,12,12s12-5.4,12-12C36,18.4,30.6,13,24,13z M24,30c-2.8,0-5-2.2-5-5c0-2.8,2.2-5,5-5s5,2.2,5,5C29,27.8,26.8,30,24,30z"></path>
+</svg>
   </a>
 
   <script src="app.js"></script>
@@ -102,4 +110,3 @@
   </script>
 </body>
 </html>
-
