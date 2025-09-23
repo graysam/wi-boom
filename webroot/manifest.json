@@ -1,8 +1,7 @@
 {
   "version": "2.0.1",
   "files": [
-    { "path": "index.html", "size": 0 },
-    { "path": "app.js",     "size": 0 }
+    { "path": "index.html", "size": 13276 },
+    { "path": "app.js",     "size": 5802 }
   ]
 }
-
