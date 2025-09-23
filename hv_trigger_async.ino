@@ -12,7 +12,7 @@ void setup() {
   Serial.begin(115200);
   delay(100);
   Serial.setDebugOutput(true);
-  Serial.println(F("Boot: HV Trigger Async starting"));
+  Serial.println(F("Boot: PeRci firmware starting"));
 
   // GPIO init
   pinMode(PIN_PULSE_OUT, OUTPUT);
@@ -28,7 +28,7 @@ void setup() {
 
   // Bring up AP/AP+STA + web stack
   setupWiFiAP();
-  initWeb(); // mounts handlers + websocket + static page
+  initWeb(); // mounts handlers + websocket + static/static FS and admin
 
   // OTA setup (TCP/3232)
   ArduinoOTA.onStart([](){ Serial.println(F("OTA: start")); });

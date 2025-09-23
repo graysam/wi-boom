@@ -11,202 +11,109 @@
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
+#include <FS.h>
+#include <SPIFFS.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <FS.h>
+#include <SPIFFS.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 
 static AsyncWebServer server(80);
 static AsyncWebSocket ws("/ws");
 static Preferences prefs;
 
 struct FireConfig {
-  bool     buzz;
-  uint32_t width;
-  uint32_t spacing;
-  uint8_t  repeat;
+  uint8_t  count;           // pulses per burst (1..10)
+  uint16_t rateHz;          // frequency (2..150 Hz)
+  uint8_t  repeats;         // number of bursts (1..6)
+  uint32_t repeatSpacing;   // ms between bursts
+  bool     continuous;      // continuous stream override
+  uint32_t width;           // pulse width (ms) — system setting
+  bool     timerEnabled;    // timer mode enabled
+  uint32_t timerMs;         // timer delay ms
 };
 
 static FireConfig g_cfg;       // current editable config
 static FireConfig g_fire;      // locked in when armed
 static volatile bool g_armed = false;
 static volatile bool g_pulseActive = false;
+static volatile bool g_timerActive = false;
+static uint32_t      g_timerDeadline = 0; // millis when timer ends
 static uint32_t      g_pageLoadCount = 0;
+static bool          g_allowUnsupervisedTimer = false; // default safety
 
 // ---------------------------------------------------------------------------
 // Configuration persistence
 static void loadPrefs() {
-  g_cfg.buzz    = prefs.getBool("buzz", false);
-  g_cfg.width   = prefs.getUInt("width",   DEFAULT_PULSE_WIDTH_MS);
-  g_cfg.spacing = prefs.getUInt("spacing", DEFAULT_BUZZ_SPACING_MS);
-  g_cfg.repeat  = prefs.getUChar("repeat", DEFAULT_BUZZ_REPEAT);
-  Serial.printf("Prefs loaded: mode=%s width=%lu spacing=%lu repeat=%u\n",
-                g_cfg.buzz ? "buzz" : "single",
-                (unsigned long)g_cfg.width,
-                (unsigned long)g_cfg.spacing,
-                (unsigned)g_cfg.repeat);
+  // New keys (with sensible defaults)
+  g_cfg.count          = prefs.getUChar ("count",   1);
+  g_cfg.rateHz         = prefs.getUShort("rateHz",  10);
+  g_cfg.repeats        = prefs.getUChar ("repeats", 1);
+  g_cfg.repeatSpacing  = prefs.getUInt  ("repSpa",  500);
+  g_cfg.continuous     = prefs.getBool  ("cont",    false);
+  g_cfg.width          = prefs.getUInt  ("width",   DEFAULT_PULSE_WIDTH_MS);
+  g_cfg.timerEnabled   = prefs.getBool  ("tmrE",    false);
+  g_cfg.timerMs        = prefs.getUInt  ("tmrMs",   10000);
+  g_allowUnsupervisedTimer = prefs.getBool("tmrUnsv", false);
+
+  // Legacy migration (buzz/spacing/repeat)
+  if (prefs.isKey("repeat") || prefs.isKey("spacing") || prefs.isKey("buzz")) {
+    bool legacyBuzz     = prefs.getBool ("buzz", false);
+    uint32_t legacySp   = prefs.getUInt ("spacing", DEFAULT_BUZZ_SPACING_MS);
+    uint8_t legacyRep   = prefs.getUChar("repeat",  DEFAULT_BUZZ_REPEAT);
+    if (legacyBuzz) {
+      g_cfg.count  = 10; // old buzz loop had 10 pulses
+      g_cfg.rateHz = legacySp ? (uint16_t)max<uint32_t>(2, min<uint32_t>(150, 1000 / legacySp)) : 10;
+    }
+    g_cfg.repeats = legacyRep;
+  }
+  Serial.printf("Prefs loaded: cnt=%u rate=%uHz reps=%u repSp=%lu cont=%d width=%lu tmrE=%d tmrMs=%lu tmrUnsv=%d\n",
+                g_cfg.count, g_cfg.rateHz, g_cfg.repeats, (unsigned long)g_cfg.repeatSpacing,
+                (int)g_cfg.continuous, (unsigned long)g_cfg.width,
+                (int)g_cfg.timerEnabled, (unsigned long)g_cfg.timerMs, (int)g_allowUnsupervisedTimer);
 }
 
 static void savePrefs() {
-  prefs.putBool("buzz", g_cfg.buzz);
-  prefs.putUInt("width", g_cfg.width);
-  prefs.putUInt("spacing", g_cfg.spacing);
-  prefs.putUChar("repeat", g_cfg.repeat);
-  Serial.printf("Prefs saved: mode=%s width=%lu spacing=%lu repeat=%u\n",
-                g_cfg.buzz ? "buzz" : "single",
-                (unsigned long)g_cfg.width,
-                (unsigned long)g_cfg.spacing,
-                (unsigned)g_cfg.repeat);
+  prefs.putUChar ("count",   g_cfg.count);
+  prefs.putUShort("rateHz",  g_cfg.rateHz);
+  prefs.putUChar ("repeats", g_cfg.repeats);
+  prefs.putUInt  ("repSpa",  g_cfg.repeatSpacing);
+  prefs.putBool  ("cont",    g_cfg.continuous);
+  prefs.putUInt  ("width",   g_cfg.width);
+  prefs.putBool  ("tmrE",    g_cfg.timerEnabled);
+  prefs.putUInt  ("tmrMs",   g_cfg.timerMs);
+  prefs.putBool  ("tmrUnsv", g_allowUnsupervisedTimer);
+  Serial.printf("Prefs saved: cnt=%u rate=%uHz reps=%u repSp=%lu cont=%d width=%lu tmrE=%d tmrMs=%lu tmrUnsv=%d\n",
+                g_cfg.count, g_cfg.rateHz, g_cfg.repeats, (unsigned long)g_cfg.repeatSpacing,
+                (int)g_cfg.continuous, (unsigned long)g_cfg.width,
+                (int)g_cfg.timerEnabled, (unsigned long)g_cfg.timerMs, (int)g_allowUnsupervisedTimer);
 }
 
 // ---------------------------------------------------------------------------
-// Minimal inline UI (served from flash)
-static const char INDEX_HTML[] PROGMEM = R"HTML(<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HV Trigger</title>
-<style>
- html,body{margin:0;height:100%;overflow:hidden;font:16px/1.4 system-ui,sans-serif;background:#f6f7f9;}
- .wrap{display:flex;flex-direction:column;height:100%;align-items:center;justify-content:center;padding:1rem;box-sizing:border-box;}
- .controls{width:100%;max-width:480px;}
- label{display:block;margin-top:12px;}
- input[type=range],select{width:100%;}
- #fire{margin:2rem auto;border-radius:50%;width:200px;height:200px;background:#ff4d4d;color:#fff;font-size:2rem;border:none;opacity:.5;}
- #fire.enabled{opacity:1;}
- .row{display:flex;gap:12px;justify-content:center;}
- button.small{padding:12px 16px;border:0;border-radius:8px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);font-weight:600;}
- .statusbar{position:fixed;left:0;right:0;bottom:28px;height:34px;background:#0b1021;color:#e8f0ff;display:flex;align-items:center;justify-content:center;font:14px/1.2 ui-monospace,Consolas,monospace;gap:16px}
- .statusbar span{margin:0 8px;}
- .infobar{position:fixed;left:0;right:0;bottom:0;height:28px;background:rgba(11,16,33,.9);color:#c8d6ff;display:flex;align-items:center;justify-content:center;font:12px/1.2 ui-monospace,Consolas,monospace}
- .ctrl{display:flex;align-items:center;gap:12px;margin-top:12px}
- .val{min-width:64px;text-align:center;padding:6px 8px;border-radius:8px;background:#0b1021;color:#e8f0ff;font-weight:700}
- button.small.active{background:#0b1021;color:#e8f0ff}
- .led{width:14px;height:14px;border-radius:50%;background:#711;box-shadow:0 0 0 2px rgba(255,255,255,.1) inset,0 0 8px rgba(0,0,0,.4)}
- .green{background:#19c37d}
- .amber{background:#ffb000}
- .red{background:#ff4d4d}
- .blink{animation:blink 1s infinite ease-in-out}
- @keyframes blink{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
- .mode{font-weight:800}
- .triplet{font-weight:700}
- .veil{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;letter-spacing:.1em}
- .hidden{display:none}
- .sp{opacity:.7}
-</style>
-</head>
-<body>
-<div id="veil" class="veil hidden">RECONNECTING...</div>
-<div class="wrap">
-  <div class="controls">
-    <label>Mode
-      <select id="mode">
-        <option value="single">Single</option>
-        <option value="buzz">Buzz</option>
-      </select>
-    </label>
-    <div class="ctrl"><div class="val" id="widthVal">10ms</div><label style="flex:1">PULSE WIDTH (ms) <input id="width" type="range" min="5" max="100" value="10"></label></div>
-    <div class="ctrl"><div class="val" id="spacingVal">20ms</div><label style="flex:1">BUZZ SPACING (ms) <input id="spacing" type="range" min="10" max="100" value="20"></label></div>
-    <div class="ctrl"><div class="val" id="repeatVal">1x</div><label style="flex:1">REPETITIONS <input id="repeat" type="range" min="1" max="4" value="1"></label></div>
-  </div>
-
-  <button id="fire" disabled>FIRE</button>
-  <div class="row">
-    <button id="arm" class="small">Arm</button>
-    <button id="disarm" class="small">Disarm</button>
-  </div>
-</div>
-
-<div class="statusbar">
-  <span class="led red" id="led-ws" title="WebSocket"></span>
-  <span class="led red" id="led-armed" title="Armed"></span>
-  <span class="mode" id="modeLabel">SINGLE-SHOT</span>
-  <span class="triplet" id="triplet">10/20/1</span>
-  <span class="sp" id="apName">-</span>
-</div>
-<div class="infobar" id="infobar">Idle.</div>
-
-<script>
-(()=>{
-  const $=id=>document.getElementById(id);
-  const mode=$("mode"), width=$("width"), spacing=$("spacing"), repeat=$("repeat");
-  const widthVal=$("widthVal"), spacingVal=$("spacingVal"), repeatVal=$("repeatVal");
-  const fire=$("fire"), arm=$("arm"), disarm=$("disarm");
-  const ledWs=$("led-ws"), ledArmed=$("led-armed"), modeLabel=$("modeLabel"), triplet=$("triplet"), apName=$("apName"), infobar=$("infobar"), veil=$("veil");
-  const state={armed:false, connected:false};
-  const proto=location.protocol==="https:"?"wss":"ws";
-  let ws=null; let reconnectTimer=null;
-
-  function cls(el, on, name){ el.classList[on?"add":"remove"](name); }
-  function setLed(el, color, blink){ el.className = `led ${color}` + (blink?" blink":""); }
-  function setArmedUI(on){
-    state.armed=!!on;
-    if(!state.armed){
-      fire.disabled=true;fire.classList.remove("enabled");
-      [mode,width,spacing,repeat].forEach(el=>el.disabled=false);
-      cls(arm,true,"active"); arm.disabled=false; cls(disarm,false,"active"); disarm.disabled=true;
-      setLed(ledArmed, "red", false);
-    }else{
-      fire.disabled=false;fire.classList.add("enabled");
-      [mode,width,spacing,repeat].forEach(el=>el.disabled=true);
-      cls(arm,false,"active"); arm.disabled=true; cls(disarm,true,"active"); disarm.disabled=false;
-      setLed(ledArmed, "amber", true);
-    }
-  }
-
-  function updateValueDisplays(){
-    widthVal.textContent = `${width.value}ms`;
-    spacingVal.textContent = `${spacing.value}ms`;
-    repeatVal.textContent = `${repeat.value}x`;
-    triplet.textContent = `${width.value}/${spacing.value}/${repeat.value}`;
-  }
-
-  function applyState(m){
-    setArmedUI(m.armed);
-    mode.value=m.cfg.mode;
-    width.value=m.cfg.width;
-    spacing.value=m.cfg.spacing;
-    repeat.value=m.cfg.repeat;
-    modeLabel.textContent = m.cfg.mode==="buzz"?"BUZZ":"SINGLE-SHOT";
-    apName.textContent = m.apSSID || "-";
-    updateValueDisplays();
-  }
-
-  function sendCfg(){
-    if(!ws || ws.readyState!==1 || state.armed) return;
-    ws.send(JSON.stringify({cmd:"cfg",mode:mode.value,width:+width.value,spacing:+spacing.value,repeat:+repeat.value}));
-  }
-
-  [mode,width,spacing,repeat].forEach(el=>{
-    el.addEventListener("input",()=>{ updateValueDisplays(); sendCfg(); });
-  });
-  arm.onclick=()=>{ if(ws && ws.readyState===1) ws.send(JSON.stringify({cmd:"arm",on:true})); };
-  disarm.onclick=()=>{ if(ws && ws.readyState===1) ws.send(JSON.stringify({cmd:"arm",on:false})); };
-  fire.onclick=()=>{ if(ws && ws.readyState===1) ws.send(JSON.stringify({cmd:"fire"})); };
-
-  function connectWs(){
-    clearTimeout(reconnectTimer);
-    setLed(ledWs, "amber", true); veil.classList.remove("hidden"); infobar.textContent = "Connecting...";
-    try { ws && ws.close && ws.close(); } catch(e){}
-    ws = new WebSocket(`${proto}://${location.host}/ws`);
-    ws.onopen = ()=>{ state.connected=true; setLed(ledWs, "green", false); veil.classList.add("hidden"); infobar.textContent = "Connected."; };
-    ws.onmessage = ev=>{
-      try{
-        const m=JSON.parse(ev.data);
-        if(m.type==="state"){ applyState(m); }
-      }catch(e){ /* ignore */ }
-    };
-    function schedule(){
-      if(reconnectTimer) return;
-      reconnectTimer = setTimeout(()=>{ reconnectTimer=null; connectWs(); }, 1000);
-    }
-    ws.onerror = ()=>{ state.connected=false; setLed(ledWs, "red", false); veil.classList.remove("hidden"); infobar.textContent = "Connection error. Retrying..."; schedule(); };
-    ws.onclose = ()=>{ state.connected=false; setLed(ledWs, "red", false); veil.classList.remove("hidden"); infobar.textContent = "Disconnected. Retrying..."; schedule(); };
-  }
-
-  updateValueDisplays();
-  connectWs();
-})();
-</script>
-</body>
-</html>)HTML";
+// Inline admin page (immutable). UI is served from SPIFFS.
+static const char ADMIN_HTML[] PROGMEM = R"HTML(<!doctype html><html lang=\"en\"><head>
+<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no\">
+<meta name=\"apple-mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black\">
+<title>PeRci Admin</title>
+<style>body{font:16px/1.4 system-ui,sans-serif;margin:0;padding:24px;background:#0b1021;color:#e8f0ff}h1{margin:0 0 12px}section{background:#11162d;border-radius:12px;padding:16px;margin:16px 0}label{display:block;margin:8px 0}input[type=number]{width:120px}button{padding:10px 16px;border:0;border-radius:8px;background:#19c37d;color:#03152b;font-weight:800;cursor:pointer}button.secondary{background:#334}.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.ok{color:#19c37d}.warn{color:#ffb000}.err{color:#ff4d4d}</style>
+</head><body>
+<h1>PeRci • Admin</h1>
+<section><h3>System Settings</h3>
+  <label>Pulse Width (ms) <input id=\"width\" type=\"number\" min=\"1\" max=\"1000\"></label>
+  <div class=\"row\"><label><input id=\"unsv\" type=\"checkbox\"> Allow unsupervised timer (continues if UI disconnects)</label></div>
+  <div class=\"row\"><button id=\"save\">Save</button> <span id=\"saveMsg\"></span></div>
+</section>
+<section><h3>UI Assets</h3>
+  <div>Web UI is served from on-device storage (SPIFFS). Use “Check for updates” to fetch the latest UI bundle from GitHub.</div>
+  <div class=\"row\"><button id=\"check\">Check for updates</button><button id=\"apply\" class=\"secondary\">Apply update</button> <span id=\"upMsg\"></span></div>
+</section>
+<section><h3>Open UI</h3>
+  <div class=\"row\"><a href=\"/\" style=\"color:#9cf\">Open main UI</a></div>
+</section>
+<script>(function(){async function g(p){const r=await fetch(p);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}async function j(p,b){const r=await fetch(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}async function load(){const s=await g('/api/settings');width.value=s.width;unsv.checked=!!s.allowUnsupervisedTimer}save.onclick=async()=>{saveMsg.textContent='';try{await j('/api/settings',{width:+width.value,allowUnsupervisedTimer:unsv.checked});saveMsg.textContent='Saved';saveMsg.className='ok'}catch(e){saveMsg.textContent='Error';saveMsg.className='err'}};check.onclick=async()=>{upMsg.textContent='';try{const r=await g('/api/ui-update/check');upMsg.textContent=r.ok?`Available: files=${r.files} size=${r.size}B free=${r.free}B`:'No update info';upMsg.className=r.ok?'ok':'warn'}catch(e){upMsg.textContent='Error';upMsg.className='err'}};apply.onclick=async()=>{upMsg.textContent='';try{const r=await j('/api/ui-update/apply',{});upMsg.textContent=r.ok?'Updated UI':(r.err||'Failed');upMsg.className=r.ok?'ok':'err'}catch(e){upMsg.textContent='Error';upMsg.className='err'}};load()})();</script>
+</body></html>)HTML";
 
 // ---------------------------------------------------------------------------
 // Wi-Fi AP / AP+STA setup
@@ -289,11 +196,12 @@ bool actionArm(bool enabled) {
   if (enabled && !g_armed) {
     g_fire = g_cfg; // lock in current config
     g_armed = true;
-    Serial.printf("Action: ARM on=true (mode=%s w=%lu s=%lu r=%u)\n",
-                  g_fire.buzz?"buzz":"single",
-                  (unsigned long)g_fire.width,(unsigned long)g_fire.spacing,(unsigned)g_fire.repeat);
+    Serial.printf("Action: ARM on=true (cnt=%u rate=%uHz reps=%u repSp=%lums cont=%d width=%lums)\n",
+                  g_fire.count, g_fire.rateHz, g_fire.repeats, (unsigned long)g_fire.repeatSpacing,
+                  (int)g_fire.continuous, (unsigned long)g_fire.width);
   } else if (!enabled) {
     g_armed = false;
+    g_timerActive = false;
     Serial.println("Action: ARM on=false");
   }
   return true;
@@ -301,39 +209,51 @@ bool actionArm(bool enabled) {
 
 static bool actionConfig(const JsonVariantConst &doc) {
   if (g_armed) return false; // no changes while armed
-  const char *mode = doc["mode"] | (g_cfg.buzz ? "buzz" : "single");
-  g_cfg.buzz    = !strcmp(mode, "buzz");
-  g_cfg.width   = doc["width"]   | g_cfg.width;
-  g_cfg.spacing = doc["spacing"] | g_cfg.spacing;
-  g_cfg.repeat  = doc["repeat"]  | g_cfg.repeat;
+  g_cfg.count         = doc["count"]    | g_cfg.count;
+  g_cfg.rateHz        = doc["rateHz"]   | g_cfg.rateHz;
+  g_cfg.repeats       = doc["repeats"]  | g_cfg.repeats;
+  g_cfg.repeatSpacing = doc["repSpa"]   | g_cfg.repeatSpacing;
+  g_cfg.continuous    = doc["continuous"] | g_cfg.continuous;
+  g_cfg.timerEnabled  = doc["timer"]    | g_cfg.timerEnabled;
+  g_cfg.timerMs       = doc["timerMs"]  | g_cfg.timerMs;
+  g_cfg.width         = doc["width"]    | g_cfg.width; // allow updates from admin
   savePrefs();
-  Serial.printf("Action: CFG mode=%s w=%lu s=%lu r=%u\n",
-                g_cfg.buzz?"buzz":"single",
-                (unsigned long)g_cfg.width,(unsigned long)g_cfg.spacing,(unsigned)g_cfg.repeat);
+  Serial.printf("Action: CFG cnt=%u rate=%uHz reps=%u repSp=%lums cont=%d tmrE=%d tmrMs=%lu width=%lu\n",
+                g_cfg.count, g_cfg.rateHz, g_cfg.repeats, (unsigned long)g_cfg.repeatSpacing,
+                (int)g_cfg.continuous, (int)g_cfg.timerEnabled, (unsigned long)g_cfg.timerMs, (unsigned long)g_cfg.width);
   return true;
 }
 
+static void pulsesOnce(uint32_t widthMs) {
+  digitalWrite(PIN_PULSE_OUT, HIGH);
+  digitalWrite(PIN_LED_PULSE, HIGH);
+  vTaskDelay(pdMS_TO_TICKS(widthMs));
+  digitalWrite(PIN_PULSE_OUT, LOW);
+  digitalWrite(PIN_LED_PULSE, LOW);
+}
+
 static void fireTask(void *) {
-  for (uint8_t r = 0; r < g_fire.repeat; ++r) {
-    if (g_fire.buzz) {
-      for (uint8_t i = 0; i < 10; ++i) {
-        digitalWrite(PIN_PULSE_OUT, HIGH);
-        digitalWrite(PIN_LED_PULSE, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(g_fire.width));
-        digitalWrite(PIN_PULSE_OUT, LOW);
-        if (g_fire.width < 50) vTaskDelay(pdMS_TO_TICKS(50 - g_fire.width));
-        digitalWrite(PIN_LED_PULSE, LOW);
-        if (i < 9) vTaskDelay(pdMS_TO_TICKS(g_fire.spacing));
-      }
-    } else {
-      digitalWrite(PIN_PULSE_OUT, HIGH);
-      digitalWrite(PIN_LED_PULSE, HIGH);
-      vTaskDelay(pdMS_TO_TICKS(g_fire.width));
-      digitalWrite(PIN_PULSE_OUT, LOW);
-      if (g_fire.width < 50) vTaskDelay(pdMS_TO_TICKS(50 - g_fire.width));
-      digitalWrite(PIN_LED_PULSE, LOW);
+  const uint16_t rate = max<uint16_t>(2, min<uint16_t>(150, g_fire.rateHz));
+  const uint32_t periodMs = 1000UL / rate;
+  const uint32_t widthMs = min(g_fire.width, periodMs > 1 ? periodMs - 1 : g_fire.width);
+
+  if (g_fire.continuous) {
+    Serial.println("Fire: continuous start");
+    while (g_pulseActive) {
+      pulsesOnce(widthMs);
+      const uint32_t offMs = periodMs > widthMs ? (periodMs - widthMs) : 1;
+      vTaskDelay(pdMS_TO_TICKS(offMs));
     }
-    if (r < g_fire.repeat - 1) vTaskDelay(pdMS_TO_TICKS(g_fire.spacing));
+    Serial.println("Fire: continuous stop");
+  } else {
+    for (uint8_t r = 0; r < g_fire.repeats && g_pulseActive; ++r) {
+      for (uint8_t i = 0; i < g_fire.count && g_pulseActive; ++i) {
+        pulsesOnce(widthMs);
+        const uint32_t offMs = periodMs > widthMs ? (periodMs - widthMs) : 1;
+        if (i < g_fire.count - 1) vTaskDelay(pdMS_TO_TICKS(offMs));
+      }
+      if (r < g_fire.repeats - 1 && g_pulseActive) vTaskDelay(pdMS_TO_TICKS(g_fire.repeatSpacing));
+    }
   }
   g_pulseActive = false;
   g_armed = false;
@@ -342,10 +262,46 @@ static void fireTask(void *) {
 }
 
 bool actionFire() {
-  if (!g_armed || g_pulseActive) return false;
+  if (!g_armed) return false;
+  // Timer mode
+  if (g_cfg.timerEnabled && g_cfg.timerMs > 0 && !g_timerActive && !g_pulseActive) {
+    g_timerActive = true;
+    g_timerDeadline = millis() + g_cfg.timerMs;
+    Serial.printf("Action: TIMER start %lums\n", (unsigned long)g_cfg.timerMs);
+    xTaskCreate([](void*){
+      while (g_timerActive) {
+        // Safety: cancel if UI disconnects and unsupervised not allowed
+        if (!g_allowUnsupervisedTimer && ws.count() == 0) {
+          Serial.println("TIMER: cancelled due to lost supervision");
+          g_timerActive = false; g_armed = false; broadcastState();
+          vTaskDelete(nullptr); return; }
+        const uint32_t now = millis();
+        if ((int32_t)(g_timerDeadline - now) <= 0) break;
+        vTaskDelay(pdMS_TO_TICKS(50));
+      }
+      if (g_timerActive && g_armed) {
+        g_timerActive = false;
+        g_pulseActive = true;
+        Serial.println("Action: FIRE start (after timer)");
+        xTaskCreate(fireTask, "fire", 4096, nullptr, 1, nullptr);
+      }
+      vTaskDelete(nullptr);
+    }, "timerWait", 3072, nullptr, 1, nullptr);
+    return true;
+  }
+
+  // Continuous toggle
+  if (g_cfg.continuous) {
+    if (g_pulseActive) {
+      g_pulseActive = false; // stop loop
+      Serial.println("Action: FIRE stop (continuous toggle)");
+      return true;
+    }
+  }
+  if (g_pulseActive) return false;
   g_pulseActive = true;
   Serial.println("Action: FIRE start");
-  xTaskCreate(fireTask, "fire", 2048, nullptr, 1, nullptr);
+  xTaskCreate(fireTask, "fire", 4096, nullptr, 1, nullptr);
   return true;
 }
 
@@ -372,6 +328,8 @@ static void handleWsMessage(void *arg, uint8_t *data, size_t len) {
     actionConfig(doc);
   } else if (!strcmp(cmd, "fire")) {
     actionFire();
+  } else if (!strcmp(cmd, "timeSync")) {
+    StaticJsonDocument<128> td; td["type"]="time"; td["nowMs"]=millis(); char out[128]; size_t n=serializeJson(td,out,sizeof(out)); ws.textAll(out,n);
   }
 
   broadcastState();
@@ -387,6 +345,11 @@ static void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
       break;
     case WS_EVT_DISCONNECT:
       Serial.printf("WS: client %u disconnected\n", client->id());
+      if (!g_allowUnsupervisedTimer && g_timerActive && ws.count() <= 1) {
+        g_timerActive = false;
+        g_armed = false;
+        Serial.println("TIMER: cancelled on disconnect");
+      }
       broadcastState();
       break;
     case WS_EVT_DATA:
@@ -400,19 +363,66 @@ static void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 
 // ---------------------------------------------------------------------------
 // HTTP
-static void onIndex(AsyncWebServerRequest *req) {
-  g_pageLoadCount++;
-  Serial.printf("HTTP: GET / from %s\n", req->client()->remoteIP().toString().c_str());
-  AsyncWebServerResponse *res = req->beginResponse_P(200, "text/html; charset=utf-8", INDEX_HTML);
-  // Allow inline script (UI is embedded) and WebSocket connections
+static void onAdmin(AsyncWebServerRequest *req) {
+  AsyncWebServerResponse *res = req->beginResponse_P(200, "text/html; charset=utf-8", ADMIN_HTML);
   res->addHeader(
     "Content-Security-Policy",
-    "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline'; "
-    "style-src 'unsafe-inline' 'self'; "
-    "connect-src 'self' ws: wss:;"
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline' 'self'; connect-src 'self' ws: wss:;"
   );
   req->send(res);
+}
+
+static void apiSettingsGet(AsyncWebServerRequest *req) {
+  StaticJsonDocument<192> d; d["width"] = g_cfg.width; d["allowUnsupervisedTimer"] = g_allowUnsupervisedTimer; char out[192]; size_t n = serializeJson(d,out,sizeof(out)); req->send(200, "application/json", String(out,n));
+}
+static void apiSettingsPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t) {
+  StaticJsonDocument<256> d; DeserializationError e = deserializeJson(d, data, len); if (e) { req->send(400, "application/json", "{\"ok\":false}"); return; }
+  if (!g_armed) { g_cfg.width = d["width"] | g_cfg.width; }
+  g_allowUnsupervisedTimer = d["allowUnsupervisedTimer"] | g_allowUnsupervisedTimer; savePrefs();
+  req->send(200, "application/json", "{\"ok\":true}");
+}
+
+static const char *UPD_BASE = "https://raw.githubusercontent.com/graysam/wi-boom/2.0.1-development/webroot";
+static bool httpGetToFile(const String &url, const String &path) {
+  WiFiClientSecure cli; cli.setInsecure(); HTTPClient http; if (!http.begin(cli, url)) return false; int code = http.GET(); if (code != HTTP_CODE_OK) { http.end(); return false; }
+  File f = SPIFFS.open(path, FILE_WRITE); if (!f) { http.end(); return false; }
+  WiFiClient *s = http.getStreamPtr(); uint8_t buf[1024]; int r;
+  while ((r = s->readBytes((char*)buf, sizeof(buf))) > 0) { if (f.write(buf, r) != (size_t)r) { f.close(); http.end(); return false; } }
+  f.close(); http.end(); return true;
+}
+static void apiUiCheck(AsyncWebServerRequest *req) {
+  WiFiClientSecure cli; cli.setInsecure(); HTTPClient http; String mu = String(UPD_BASE) + "/manifest.json"; bool ok=false; size_t files=0, size=0, freeB=SPIFFS.totalBytes()? (SPIFFS.totalBytes()-SPIFFS.usedBytes()) : 0;
+  if (http.begin(cli, mu)) { int code = http.GET(); if (code == HTTP_CODE_OK) { StaticJsonDocument<1024> d; DeserializationError e = deserializeJson(d, http.getString()); if (!e) { ok=true; files = d["files"].size(); for (JsonObject it : d["files"].as<JsonArray>()) size += (size_t)(it["size"].as<unsigned long>()); } } http.end(); }
+  StaticJsonDocument<192> out; out["ok"]=ok; out["files"]=files; out["size"]=size; out["free"]=freeB; String s; serializeJson(out, s); req->send(200, "application/json", s);
+}
+static void apiUiApply(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t) {
+  (void)data; (void)len; bool ok=false; String err=""; do {
+    WiFiClientSecure cli; cli.setInsecure(); HTTPClient http; String mu = String(UPD_BASE) + "/manifest.json";
+    if (!http.begin(cli, mu)) { err="manifest begin"; break; }
+    int code = http.GET(); if (code != HTTP_CODE_OK) { http.end(); err="manifest http"; break; }
+    StaticJsonDocument<4096> d; DeserializationError e = deserializeJson(d, http.getString()); http.end(); if (e) { err = "manifest parse"; break; }
+    size_t need=0; for (JsonObject it : d["files"].as<JsonArray>()) need += (size_t)(it["size"].as<unsigned long>());
+    size_t freeB = SPIFFS.totalBytes()? (SPIFFS.totalBytes()-SPIFFS.usedBytes()) : 0; if (freeB + 10240 < need) { err = "insufficient space"; break; }
+    SPIFFS.mkdir("/__new");
+    for (JsonObject it : d["files"].as<JsonArray>()) {
+      String p = String(it["path"].as<const char*>());
+      String url = String(UPD_BASE) + "/" + p;
+      String dst = String("/__new/") + p;
+      for (int i=1;i<dst.length();++i){ if (dst[i]=='/') { SPIFFS.mkdir(dst.substring(0,i)); } }
+      if (!httpGetToFile(url, dst)) { err = String("download ")+p; break; }
+    }
+    if (err.length()) break;
+    for (JsonObject it : d["files"].as<JsonArray>()) {
+      String rel = String(it["path"].as<const char*>());
+      String dst = String("/webroot/") + rel;
+      if (SPIFFS.exists(dst)) SPIFFS.remove(dst);
+      for (int i=1;i<dst.length();++i){ if (dst[i]=='/') { SPIFFS.mkdir(dst.substring(0,i)); } }
+      String src = String("/__new/") + rel;
+      SPIFFS.rename(src, dst);
+    }
+    ok=true;
+  } while(false);
+  StaticJsonDocument<192> out; out["ok"]=ok; if(!ok) out["err"]=err; String s; serializeJson(out, s); req->send(200, "application/json", s);
 }
 
 void initWeb() {
@@ -420,12 +430,29 @@ void initWeb() {
   loadPrefs();
   Serial.println(F("initWeb(): prefs ready, mounting routes"));
 
+  if (!SPIFFS.begin(true)) {
+    Serial.println(F("SPIFFS mount failed"));
+  } else {
+    Serial.printf("SPIFFS: total=%lu used=%lu\n", (unsigned long)SPIFFS.totalBytes(), (unsigned long)SPIFFS.usedBytes());
+  }
+
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
 
-  server.on("/", HTTP_GET, onIndex);
+  server.on("/admin", HTTP_GET, onAdmin);
+  server.on("/api/settings", HTTP_GET, apiSettingsGet);
+  server.on("/api/settings", HTTP_POST, [](AsyncWebServerRequest *req){}, NULL, apiSettingsPost);
+  server.on("/api/ui-update/check", HTTP_GET, apiUiCheck);
+  server.on("/api/ui-update/apply", HTTP_POST, [](AsyncWebServerRequest *req){}, NULL, apiUiApply);
+
+  if (SPIFFS.exists("/webroot/index.html")) {
+    server.serveStatic("/", SPIFFS, "/webroot/").setDefaultFile("index.html");
+  } else {
+    server.on("/", HTTP_GET, onAdmin);
+  }
+
   server.onNotFound([](AsyncWebServerRequest *req) {
-    req->send(404, "text/plain", "Not found");
+    if (SPIFFS.exists("/webroot/index.html")) req->redirect("/"); else req->send(404, "text/plain", "Not found");
   });
 
   server.begin();
@@ -435,16 +462,20 @@ void initWeb() {
 // ---------------------------------------------------------------------------
 // Telemetry
 void broadcastState() {
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<384> doc;
   doc["type"]        = "state";
   doc["pageCount"]   = g_pageLoadCount;
   doc["armed"]       = g_armed;
   doc["pulseActive"] = g_pulseActive;
   JsonObject cfg = doc.createNestedObject("cfg");
-  cfg["mode"]    = g_cfg.buzz ? "buzz" : "single";
-  cfg["width"]   = g_cfg.width;
-  cfg["spacing"] = g_cfg.spacing;
-  cfg["repeat"]  = g_cfg.repeat;
+  cfg["count"]      = g_cfg.count;
+  cfg["rateHz"]     = g_cfg.rateHz;
+  cfg["repeats"]    = g_cfg.repeats;
+  cfg["repSpa"]     = g_cfg.repeatSpacing;
+  cfg["continuous"] = g_cfg.continuous;
+  cfg["width"]      = g_cfg.width;
+  cfg["timer"]      = g_cfg.timerEnabled;
+  cfg["timerMs"]    = g_cfg.timerMs;
   doc["wifiClients"] = WiFi.softAPgetStationNum();
   doc["wifiConnected"] = (ws.count() > 0);
   doc["wsCount"] = ws.count();
@@ -453,9 +484,19 @@ void broadcastState() {
   doc["staIP"] = (WiFi.getMode() == WIFI_AP_STA && WiFi.status() == WL_CONNECTED)
                    ? WiFi.localIP().toString() : String("");
   doc["adc"] = 0;
+  doc["nowMs"] = millis();
+  if (g_timerActive) {
+    JsonObject t = doc.createNestedObject("timer");
+    t["active"] = true;
+    t["deadlineMs"] = g_timerDeadline;
+  }
 
-  char out[256];
+  char out[384];
   const size_t n = serializeJson(doc, out, sizeof(out));
   ws.textAll(out, n);
 }
+
+// Settings helpers
+void setAllowUnsupervisedTimer(bool allow) { g_allowUnsupervisedTimer = allow; savePrefs(); }
+bool getAllowUnsupervisedTimer() { return g_allowUnsupervisedTimer; }
 

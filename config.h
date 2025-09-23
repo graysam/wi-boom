@@ -48,7 +48,8 @@ static constexpr uint8_t PIN_LED_ARMED   = 12; // RED  = armed & ready to fire
 // No ADC reserved in current mappings
 
 // -------------------- Wi-Fi (SoftAP) --------------------
-static constexpr char WIFI_AP_SSID[]     = "Trigger-Remote";
+// Project branding: PeRci (Pulsed Energy Remote Charge Initiator)
+static constexpr char WIFI_AP_SSID[]     = "PeRci-Remote";
 static constexpr char WIFI_AP_PASS[]     = "lollipop"; // change for field use
 
 // SoftAP IPv4
