@@ -110,7 +110,7 @@ static const char ADMIN_HTML[] PROGMEM = R"HTML(<!doctype html><html lang=\"en\"
   <div class=\"row\"><button id=\"check\">Check for updates</button><button id=\"apply\" class=\"secondary\">Apply update</button> <span id=\"upMsg\"></span></div>
 </section>
 <section><h3>Open UI</h3>
-  <div class=\"row\"><a href=\"/\" style=\"color:#9cf\">Open main UI</a></div>
+  <div class=\"row\"><a href=\"/index.html\" style=\"color:#9cf\">Open main UI</a></div>
 </section>
 <script>(function(){async function g(p){const r=await fetch(p);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}async function j(p,b){const r=await fetch(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}async function load(){const s=await g('/api/settings');width.value=s.width;unsv.checked=!!s.allowUnsupervisedTimer}save.onclick=async()=>{saveMsg.textContent='';try{await j('/api/settings',{width:+width.value,allowUnsupervisedTimer:unsv.checked});saveMsg.textContent='Saved';saveMsg.className='ok'}catch(e){saveMsg.textContent='Error';saveMsg.className='err'}};check.onclick=async()=>{upMsg.textContent='';try{const r=await g('/api/ui-update/check');upMsg.textContent=r.ok?`Available: files=${r.files} size=${r.size}B free=${r.free}B`:'No update info';upMsg.className=r.ok?'ok':'warn'}catch(e){upMsg.textContent='Error';upMsg.className='err'}};apply.onclick=async()=>{upMsg.textContent='';try{const r=await j('/api/ui-update/apply',{});upMsg.textContent=r.ok?'Updated UI':(r.err||'Failed');upMsg.className=r.ok?'ok':'err'}catch(e){upMsg.textContent='Error';upMsg.className='err'}};load()})();</script>
 </body></html>)HTML";
@@ -445,14 +445,20 @@ void initWeb() {
   server.on("/api/ui-update/check", HTTP_GET, apiUiCheck);
   server.on("/api/ui-update/apply", HTTP_POST, [](AsyncWebServerRequest *req){}, NULL, apiUiApply);
 
-  if (SPIFFS.exists("/webroot/index.html")) {
-    server.serveStatic("/", SPIFFS, "/webroot/").setDefaultFile("index.html");
-  } else {
-    server.on("/", HTTP_GET, onAdmin);
-  }
+  // Always register static UI; files may be installed later without reboot
+  server.serveStatic("/", SPIFFS, "/webroot/").setDefaultFile("index.html");
 
   server.onNotFound([](AsyncWebServerRequest *req) {
-    if (SPIFFS.exists("/webroot/index.html")) req->redirect("/"); else req->send(404, "text/plain", "Not found");
+    if (SPIFFS.exists("/webroot/index.html")) {
+      req->redirect("/");
+    } else {
+      AsyncWebServerResponse *res = req->beginResponse_P(200, "text/html; charset=utf-8", ADMIN_HTML);
+      res->addHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline' 'self'; connect-src 'self' ws: wss:;"
+      );
+      req->send(res);
+    }
   });
 
   server.begin();
