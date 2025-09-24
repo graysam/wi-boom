@@ -15,7 +15,7 @@
   - Compile (ESP32): `arduino-cli compile --fqbn esp32:esp32:esp32 perci.ino`
   - Compile (ESP32â€‘S3): `arduino-cli compile --fqbn esp32:esp32:esp32s3 perci.ino`
   - Upload: `arduino-cli upload -p COM5 --fqbn esp32:esp32:esp32 perci.ino`
-- Run locally: Not applicable (firmware). After flashing, join AP `Trigger-Remote` and browse `http://10.11.12.1/`.
+- Run locally: Not applicable (firmware). After flashing, join AP `PeRci-Remote` and browse `http://10.11.12.1/`.
 
 ## Coding Style & Naming Conventions
 - Indentation: 2 spaces; braces on same line. Keep lines â‰² 100 chars.

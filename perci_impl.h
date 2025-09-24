@@ -1,6 +1,6 @@
-﻿// ============================================================================
-// file: perci.ino
-// ESP32-S3 (Arduino) Ã¢â‚¬â€ Wi-Fi PeRci with Async Web UI and persistent config.
+// ============================================================================
+// file: perci_impl.h
+// PeRci (ESP32/ESP32-S3) — Wi‑Fi HV Trigger with Async Web UI and persistent config.
 // ============================================================================
 
 #include <Arduino.h>
@@ -24,18 +24,14 @@ void setup() {
   pinMode(PIN_LED_ARMED, OUTPUT);
   Serial.println(F("GPIO: pins configured"));
 
-  // ADC reserved pin removed on ESP32-CAM
-
   // Bring up AP/AP+STA + web stack
   setupWiFiAP();
-  initWeb(); // mounts handlers + websocket + static/static FS and admin
+  initWeb(); // mounts handlers + websocket + SPIFFS/static UI and admin
 
   // OTA setup (TCP/3232)
   ArduinoOTA.onStart([](){ Serial.println(F("OTA: start")); });
   ArduinoOTA.onEnd([](){ Serial.println(F("OTA: end")); });
-  ArduinoOTA.onProgress([](unsigned int p, unsigned int t){
-    Serial.printf("OTA: %u%%\n", (p*100)/t);
-  });
+  ArduinoOTA.onProgress([](unsigned int p, unsigned int t){ Serial.printf("OTA: %u%%\n", (p*100)/t); });
   ArduinoOTA.onError([](ota_error_t e){ Serial.printf("OTA: error %u\n", e); });
   ArduinoOTA.begin();
 
@@ -43,13 +39,13 @@ void setup() {
 }
 
 void loop() {
-  // Async server requires no busy loop; use millis for periodic state broadcast
   static uint32_t last = 0;
   const uint32_t now = millis();
   if (now - last >= TELEMETRY_PERIOD_MS) {
     last = now;
-    broadcastState();  // push inputs/telemetry to any connected WS clients
+    broadcastState();
   }
   updateIndicators();
   ArduinoOTA.handle();
 }
+

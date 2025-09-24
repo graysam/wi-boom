@@ -21,7 +21,7 @@ Firmware for ESP32 boards hosting a minimal web UI to safely arm and trigger a h
 3. Manual (Arduino IDE):
    - ESP32 Dev Module (ESP32â€‘WROOMâ€‘32): select Board "ESP32 Dev Module".
    - ESP32â€‘S3 Dev Module: select Board "ESP32S3 Dev Module" and enable USB CDC on boot.
-   Then open `perci.ino` and Upload.
+   Then Open `hv_trigger_async.ino` and Upload.
 4. Connect to AP `PeRci-Remote` and open `http://10.11.12.1/`.
 5. OTA Update (optional):
    - Ensure your PC and the device are on the same network (AP or STA).
