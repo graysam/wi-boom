@@ -1,8 +1,8 @@
-﻿# PowerShell Build + Burn helper for HV Trigger Async (ESP32-S3)
+﻿# PowerShell Build + Burn helper for PeRci (ESP32-S3)
 # Usage: pwsh -ExecutionPolicy Bypass -File .\buildAndBurn.ps1
 
 param(
-  [string]$SketchDefault = 'hv_trigger_async.ino',
+  [string]$SketchDefault = 'perci.ino',
   [string]$FqbnDefault   = 'esp32:esp32:esp32',
   [string]$BuildDir      = 'build'
 )

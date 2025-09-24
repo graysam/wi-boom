@@ -1,7 +1,7 @@
 ﻿# Build / Flash Notes
 
 Recommended Stack
-- ESP32 core: 3.3.x (latest stable). Validated with AsyncTCP 3.4.8, ESPAsyncWebServer 3.8.1, ArduinoJson 7.4.x.
+- ESP32 core: 2.0.14 (stable with current Async libs). Newer 3.x cores may require updated ESP32Async libraries.
 - Libraries: AsyncTCP, ESPAsyncWebServer, ArduinoJson (see `library-notes.txt`).
 
 Scripts (preferred)
@@ -27,20 +27,11 @@ Arduino CLI
 - Upload (OTA example): `arduino-cli upload -p 10.11.12.1:3232 --fqbn esp32:esp32:esp32 perci.ino`
 - Monitor: `arduino-cli monitor -p COM9 -c baudrate=115200`
 
-Make (production‑oriented)
-1. Install makeEspArduino: `git clone https://github.com/plerup/makeEspArduino.git ~/makeEspArduino`
-2. From repo root:
-   - ESP32: `make BOARD=esp32:esp32:esp32 CHIP=esp32` (build)
-   - ESP32‑S3: `make BOARD=esp32:esp32:esp32s3 CHIP=esp32`
-   - Flash: add `UPLOAD_PORT` (e.g., COM9) and target `flash`
-     - Example: `make BOARD=esp32:esp32:esp32 CHIP=esp32 UPLOAD_PORT=COM9 flash`
-   Notes:
-   - The top‑level `Makefile` auto‑locates makeEspArduino at `tools/makeEspArduino/` or `~/makeEspArduino`. Override with `MAKEESPARDUINO=/path/to/makeEspArduino.mk`.
-   - Use `make help` for available targets.
-
 Connect & Use
-1. Join AP `PeRci-Remote` / pass `lollipop` (change in `config.h`).
-2. Open `http://10.11.12.1/`. On first boot a Setup page guides STA config and UI update; afterwards the main UI loads by default. Arm then FIRE.
+1. Join AP `Trigger-Remote` / pass `lollipop` (change in `config.h`).
+2. Open `http://10.11.12.1/`. Use UI to set Mode/Width/Spacing/Repeat; Arm then FIRE.
 
 Notes
-- UI is served from SPIFFS (`/webroot/`), updated via Admin. Telemetry/WebSocket at `/ws` ~every 250 ms. OTA available on TCP/3232.
+- UI is served from PROGMEM; no filesystem needed.
+- WebSocket at `/ws` sends telemetry ~every 250 ms and after commands. See `docs/WS_API.md`.
+- OTA updates: device listens on TCP/3232; ensure your host and device share a network (AP or STA). In IDE, a Network Port may appear.

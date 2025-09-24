@@ -1,10 +1,10 @@
 ﻿#!/usr/bin/env bash
 set -euo pipefail
 
-# Build + Burn helper for HV Trigger Async (ESP32 / ESP32-S3)
+# Build + Burn helper for PeRci (ESP32 / ESP32-S3)
 # Requires: arduino-cli on PATH
 
-SKETCH_DEFAULT="hv_trigger_async.ino"
+SKETCH_DEFAULT="perci.ino"
 FQBN_DEFAULT="esp32:esp32:esp32"
 BUILD_DIR="build"
 

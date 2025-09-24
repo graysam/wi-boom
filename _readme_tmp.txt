@@ -1,15 +1,15 @@
-﻿# PeRci (ESP32 / ESP32‑S3)
+﻿# PeRci (ESP32 / ESP32-S3)
 
 Firmware for ESP32 boards hosting a minimal web UI to safely arm and trigger a highâ€‘voltage initiator. AsyncTCP + ESPAsyncWebServer power a WebSocket control channel; configuration persists via Preferences.
 
 ## Features
-- SoftAP: `PeRci-Remote` / `lollipop`, IP `10.11.12.1`.
-- UI from SPIFFS (/webroot/), with first‑boot Setup page to configure STA and fetch the latest UI.
+- SoftAP: `Trigger-Remote` / `lollipop`, IP `10.11.12.1`.
+- Inline UI from PROGMEM; no filesystem required.
 - WebSocket at `/ws` for telemetry (~250 ms) and commands.
 - Pulse controls: mode `single` or `buzz`, width, spacing, repeat.
 - Hardware LEDs: amber/green (network/WS), red (armed), blue (pulse).
-- Status bar: WS and Armed LEDs with reconnect veil; tap to show AP/STA IPs.
-- OTA via ArduinoOTA (TCP/3232).
+- Status bar: WS and Armed LEDs, mode label (BUZZ/SINGLEâ€‘SHOT), compact `W/S/R` values (e.g., `31/38/3`), AP name; reconnect overlay while WS is down.
+- OTA via ArduinoOTA (TCP/3232) â€” update while the app is running.
 - Verbose Serial logs for boot, prefs, HTTP, WS, and actions.
 
 ## Quickstart
@@ -22,7 +22,7 @@ Firmware for ESP32 boards hosting a minimal web UI to safely arm and trigger a h
    - ESP32 Dev Module (ESP32â€‘WROOMâ€‘32): select Board "ESP32 Dev Module".
    - ESP32â€‘S3 Dev Module: select Board "ESP32S3 Dev Module" and enable USB CDC on boot.
    Then open `perci.ino` and Upload.
-4. Connect to AP `PeRci-Remote` and open `http://10.11.12.1/`.
+4. Connect to AP `Trigger-Remote` and open `http://10.11.12.1/`.
 5. OTA Update (optional):
    - Ensure your PC and the device are on the same network (AP or STA).
    - Arduino IDE: use the Network Port entry if available.

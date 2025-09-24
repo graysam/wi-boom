@@ -1,6 +1,6 @@
-// ============================================================================
-// file: hv_trigger_async.ino
-// ESP32-S3 (Arduino) â€” Wi-Fi HV Trigger with Async Web UI and persistent config.
+﻿// ============================================================================
+// file: perci.ino
+// ESP32-S3 (Arduino) Ã¢â‚¬â€ Wi-Fi PeRci with Async Web UI and persistent config.
 // ============================================================================
 
 #include <Arduino.h>
