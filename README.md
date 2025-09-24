@@ -21,12 +21,12 @@ Firmware for ESP32 boards hosting a minimal web UI to safely arm and trigger a h
 3. Manual (Arduino IDE):
    - ESP32 Dev Module (ESP32â€‘WROOMâ€‘32): select Board "ESP32 Dev Module".
    - ESP32â€‘S3 Dev Module: select Board "ESP32S3 Dev Module" and enable USB CDC on boot.
-   Then Open `perci.ino` and Upload.
+   Then Open `PeRci.ino` and Upload.
 4. Connect to AP `PeRci-Remote` and open `http://10.11.12.1/`.
 5. OTA Update (optional):
    - Ensure your PC and the device are on the same network (AP or STA).
    - Arduino IDE: use the Network Port entry if available.
-   - Arduino CLI: `arduino-cli upload -p 10.11.12.1:3232 --fqbn esp32:esp32:esp32 perci.ino` (replace FQBN for ESP32â€‘S3).
+   - Arduino CLI: `arduino-cli upload -p 10.11.12.1:3232 --fqbn esp32:esp32:esp32 PeRci.ino` (replace FQBN for ESP32â€‘S3).
 
 ## Controls & Ranges
 - Mode: `single` or `buzz`.
@@ -42,7 +42,7 @@ Firmware for ESP32 boards hosting a minimal web UI to safely arm and trigger a h
 See `docs/WS_API.md` for WebSocket message formats, examples, and flows.
 
 ## Code Map
-- `perci.ino`: setup/loop, telemetry tick, indicators.
+- `PeRci.ino`: setup/loop, telemetry tick, indicators.
 - `web_server.cpp/.h`: AP setup, async server, WebSocket, inline UI, actions.
 - `config.h`: pins, SoftAP settings, defaults; edit pins here if needed.
 

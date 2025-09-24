@@ -4,7 +4,7 @@ set -euo pipefail
 # Build + Burn helper for PeRci (ESP32 / ESP32-S3)
 # Requires: arduino-cli on PATH
 
-SKETCH_DEFAULT="perci.ino"
+SKETCH_DEFAULT="PeRci.ino"
 FQBN_DEFAULT="esp32:esp32:esp32"
 BUILD_DIR="build"
 

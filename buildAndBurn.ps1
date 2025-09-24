@@ -2,7 +2,7 @@
 # Usage: pwsh -ExecutionPolicy Bypass -File .\buildAndBurn.ps1
 
 param(
-  [string]$SketchDefault = 'perci.ino',
+  [string]$SketchDefault = 'PeRci.ino',
   [string]$FqbnDefault   = 'esp32:esp32:esp32',
   [string]$BuildDir      = 'build'
 )

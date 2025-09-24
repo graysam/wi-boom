@@ -1,7 +1,7 @@
 ﻿# Repository Guidelines
 
 ## Project Structure & Module Organization
-- `perci.ino`: Arduino entrypoint (setup/loop, periodic telemetry).
+- `PeRci.ino`: Arduino entrypoint (setup/loop, periodic telemetry).
 - `web_server.cpp/.h`: Async web server, WebSocket, routes, and UI assets (served from PROGMEM).
 - `config.h`: Pins, SoftAP settings, and default timing values.
 - `README.build.md`, `library-notes.txt`: Board, library, and flashing notes.
@@ -10,11 +10,11 @@
 - Arduino IDE:
   - ESP32 Dev Module (ESP32â€‘WROOMâ€‘32): select Board `ESP32 Dev Module`.
   - ESP32â€‘S3 Dev Module: select Board `ESP32S3 Dev Module` and enable USB CDC.
-  - Install AsyncTCP, ESPAsyncWebServer, ArduinoJson. Open `perci.ino` and Upload.
+  - Install AsyncTCP, ESPAsyncWebServer, ArduinoJson. Open `PeRci.ino` and Upload.
 - Arduino CLI (examples):
-  - Compile (ESP32): `arduino-cli compile --fqbn esp32:esp32:esp32 perci.ino`
-  - Compile (ESP32â€‘S3): `arduino-cli compile --fqbn esp32:esp32:esp32s3 perci.ino`
-  - Upload: `arduino-cli upload -p COM5 --fqbn esp32:esp32:esp32 perci.ino`
+  - Compile (ESP32): `arduino-cli compile --fqbn esp32:esp32:esp32 PeRci.ino`
+  - Compile (ESP32â€‘S3): `arduino-cli compile --fqbn esp32:esp32:esp32s3 PeRci.ino`
+  - Upload: `arduino-cli upload -p COM5 --fqbn esp32:esp32:esp32 PeRci.ino`
 - Run locally: Not applicable (firmware). After flashing, join AP `PeRci-Remote` and browse `http://10.11.12.1/`.
 
 ## Coding Style & Naming Conventions

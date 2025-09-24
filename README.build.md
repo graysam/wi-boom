@@ -12,19 +12,19 @@ Scripts (preferred)
 Arduino IDE
 - ESP32 Dev Module (ESP32‑WROOM‑32):
   - Tools > Board > ESP32 Arduino > ESP32 Dev Module
-  - Open `perci.ino` and Upload.
+  - Open `PeRci.ino` and Upload.
 - ESP32‑S3 Dev Module:
   - Tools > Board > ESP32 Arduino > ESP32S3 Dev Module
   - USB CDC On Boot: Enabled
   - Upload Mode: UART0 / Hardware CDC
   - Flash Size: per module (e.g., 8MB)
-  - Open `perci.ino` and Upload.
+  - Open `PeRci.ino` and Upload.
 
 Arduino CLI
-- ESP32 Dev Module: `arduino-cli compile --fqbn esp32:esp32:esp32 perci.ino`
-- ESP32‑S3 Dev Module: `arduino-cli compile --fqbn esp32:esp32:esp32s3 perci.ino`
-- Upload (serial example): `arduino-cli upload -p COM9 --fqbn esp32:esp32:esp32 perci.ino`
-- Upload (OTA example): `arduino-cli upload -p 10.11.12.1:3232 --fqbn esp32:esp32:esp32 perci.ino`
+- ESP32 Dev Module: `arduino-cli compile --fqbn esp32:esp32:esp32 PeRci.ino`
+- ESP32‑S3 Dev Module: `arduino-cli compile --fqbn esp32:esp32:esp32s3 PeRci.ino`
+- Upload (serial example): `arduino-cli upload -p COM9 --fqbn esp32:esp32:esp32 PeRci.ino`
+- Upload (OTA example): `arduino-cli upload -p 10.11.12.1:3232 --fqbn esp32:esp32:esp32 PeRci.ino`
 - Monitor: `arduino-cli monitor -p COM9 -c baudrate=115200`
 
 Make (production‑oriented)
