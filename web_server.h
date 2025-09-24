@@ -15,6 +15,10 @@ void updateIndicators();
 void setAllowUnsupervisedTimer(bool allow);
 bool getAllowUnsupervisedTimer();
 
+// Network settings (runtime-configurable)
+void setStaConfig(bool enabled, const String &ssid, const String &pass);
+void getStaConfig(bool &enabled, String &ssid);
+
 // Actions that UI may invoke
 bool actionArm(bool enabled);
 bool actionFire();

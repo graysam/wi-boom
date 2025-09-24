@@ -1,4 +1,4 @@
-(()=>{
+﻿(()=>{
   const $=id=>document.getElementById(id);
   // Elements
   const ledWs=$("ledWs"), ledArmed=$("ledArmed"), apName=$("apName"), veil=$("veil"), info=$("infobar");
@@ -127,3 +127,9 @@
   updateVals();
   connect();
 })();
+
+  // Show IPs on status bar tap
+  document.querySelector(".statusbar").addEventListener("click", ()=>{
+    const msg = `AP ${apIP||"-"}  |  STA ${staIP||"-"}`; alert(msg);
+  });
+

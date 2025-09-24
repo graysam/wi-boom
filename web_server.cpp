@@ -43,6 +43,9 @@ static volatile bool g_timerActive = false;
 static uint32_t      g_timerDeadline = 0; // millis when timer ends
 static uint32_t      g_pageLoadCount = 0;
 static bool          g_allowUnsupervisedTimer = false; // default safety
+static bool          g_staEnabled = false;
+static String        g_staSSID;
+static String        g_staPASS;
 
 // ---------------------------------------------------------------------------
 // Configuration persistence
@@ -57,6 +60,10 @@ static void loadPrefs() {
   g_cfg.timerEnabled   = prefs.getBool  ("tmrE",    false);
   g_cfg.timerMs        = prefs.getUInt  ("tmrMs",   10000);
   g_allowUnsupervisedTimer = prefs.getBool("tmrUnsv", false);
+  // Network prefs
+  g_staEnabled   = prefs.getBool("staE", WIFI_APSTA);
+  g_staSSID      = prefs.getString("staS", String(STA_SSID));
+  g_staPASS      = prefs.getString("staP", String(STA_PASS));
 
   // Legacy migration (buzz/spacing/repeat)
   if (prefs.isKey("repeat") || prefs.isKey("spacing") || prefs.isKey("buzz")) {
@@ -85,6 +92,10 @@ static void savePrefs() {
   prefs.putBool  ("tmrE",    g_cfg.timerEnabled);
   prefs.putUInt  ("tmrMs",   g_cfg.timerMs);
   prefs.putBool  ("tmrUnsv", g_allowUnsupervisedTimer);
+  // Network prefs
+  prefs.putBool  ("staE", g_staEnabled);
+  prefs.putString("staS", g_staSSID);
+  prefs.putString("staP", g_staPASS);
   Serial.printf("Prefs saved: cnt=%u rate=%uHz reps=%u repSp=%lu cont=%d width=%lu tmrE=%d tmrMs=%lu tmrUnsv=%d\n",
                 g_cfg.count, g_cfg.rateHz, g_cfg.repeats, (unsigned long)g_cfg.repeatSpacing,
                 (int)g_cfg.continuous, (unsigned long)g_cfg.width,
@@ -122,9 +133,10 @@ void setupWiFiAP() {
   IPAddress gw(AP_GW[0], AP_GW[1], AP_GW[2], AP_GW[3]);
   IPAddress mask(AP_MASK[0], AP_MASK[1], AP_MASK[2], AP_MASK[3]);
 
-  if (WIFI_APSTA && strlen(STA_SSID) > 0) {
+  // Mode from runtime prefs (AP always active; STA optional)
+  if (g_staEnabled && g_staSSID.length() > 0) {
     WiFi.mode(WIFI_AP_STA);
-    Serial.printf("WiFi: starting AP+STA (ssid=%s)\n", STA_SSID);
+    Serial.printf("WiFi: starting AP+STA (ssid=%s)\n", g_staSSID.c_str());
   } else {
     WiFi.mode(WIFI_AP);
     Serial.println(F("WiFi: starting AP-only"));
@@ -138,8 +150,8 @@ void setupWiFiAP() {
   }
   Serial.printf("AP up: %s  IP: %s\n", WIFI_AP_SSID, WiFi.softAPIP().toString().c_str());
 
-  if (WiFi.getMode() == WIFI_AP_STA && strlen(STA_SSID) > 0) {
-    WiFi.begin(STA_SSID, STA_PASS);
+  if (WiFi.getMode() == WIFI_AP_STA && g_staSSID.length() > 0) {
+    WiFi.begin(g_staSSID.c_str(), g_staPASS.c_str());
     const uint32_t t0 = millis();
     while (WiFi.status() != WL_CONNECTED && (millis() - t0) < 10000) {
       delay(250);
@@ -373,7 +385,16 @@ static void onAdmin(AsyncWebServerRequest *req) {
 }
 
 static void apiSettingsGet(AsyncWebServerRequest *req) {
-  StaticJsonDocument<192> d; d["width"] = g_cfg.width; d["allowUnsupervisedTimer"] = g_allowUnsupervisedTimer; char out[192]; size_t n = serializeJson(d,out,sizeof(out)); req->send(200, "application/json", String(out,n));
+  StaticJsonDocument<320> d; 
+  d["width"] = g_cfg.width; 
+  d["allowUnsupervisedTimer"] = g_allowUnsupervisedTimer; 
+  d["staEnabled"] = g_staEnabled;
+  d["staSSID"] = g_staSSID;
+  d["apSSID"] = WIFI_AP_SSID;
+  d["apIP"] = WiFi.softAPIP().toString();
+  d["staConnected"] = (WiFi.getMode() == WIFI_AP_STA && WiFi.status() == WL_CONNECTED);
+  d["staIP"] = (WiFi.getMode() == WIFI_AP_STA && WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : String("");
+  char out[320]; size_t n = serializeJson(d,out,sizeof(out)); req->send(200, "application/json", String(out,n));
 }
 static void apiSettingsPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t) {
   StaticJsonDocument<256> d; DeserializationError e = deserializeJson(d, data, len); if (e) { req->send(400, "application/json", "{\"ok\":false}"); return; }
@@ -425,6 +446,44 @@ static void apiUiApply(AsyncWebServerRequest *req, uint8_t *data, size_t len, si
   StaticJsonDocument<192> out; out["ok"]=ok; if(!ok) out["err"]=err; String s; serializeJson(out, s); req->send(200, "application/json", s);
 }
 
+// --- Network config APIs ---
+static void apiNetGet(AsyncWebServerRequest *req){
+  StaticJsonDocument<320> d;
+  d["staEnabled"]=g_staEnabled; d["staSSID"]=g_staSSID;
+  d["apSSID"]=WIFI_AP_SSID; d["apIP"]=WiFi.softAPIP().toString();
+  bool staConn=(WiFi.getMode()==WIFI_AP_STA && WiFi.status()==WL_CONNECTED);
+  d["staConnected"]=staConn; d["staIP"]= staConn? WiFi.localIP().toString():String("");
+  String s; serializeJson(d,s); req->send(200, "application/json", s);
+}
+static void apiNetPost(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t, size_t){
+  StaticJsonDocument<384> d; DeserializationError e = deserializeJson(d, data, len); if (e){ req->send(400, "application/json", "{\"ok\":false}"); return; }
+  bool en = d["staEnabled"].as<bool>();
+  const char* ss = d["staSSID"] | g_staSSID.c_str();
+  const char* pw = d["staPASS"] | g_staPASS.c_str();
+  g_staEnabled = en; g_staSSID = ss; g_staPASS = pw; savePrefs();
+  bool connectNow = d["connectNow"].as<bool>();
+  bool conn=false; String staIP="";
+  if (connectNow){
+    if (g_staEnabled && g_staSSID.length()>0){
+      WiFi.mode(WIFI_AP_STA);
+      WiFi.begin(g_staSSID.c_str(), g_staPASS.c_str());
+      uint32_t t0=millis();
+      while (WiFi.status()!=WL_CONNECTED && (millis()-t0)<12000){ delay(250); }
+      conn = (WiFi.status()==WL_CONNECTED);
+      if (conn) staIP = WiFi.localIP().toString();
+    } else {
+      WiFi.mode(WIFI_AP);
+    }
+  }
+  StaticJsonDocument<192> out; out["ok"]=true; out["staConnected"]=conn; out["staIP"]=staIP; String s; serializeJson(out,s); req->send(200, "application/json", s);
+}
+static void apiNetCheck(AsyncWebServerRequest *req){
+  // Simple internet reachability check via GitHub manifest URL
+  WiFiClientSecure cli; cli.setInsecure(); HTTPClient http; bool ok=false; int code=-1;
+  if (http.begin(cli, String(UPD_BASE)+"/manifest.json")) { code = http.GET(); ok = (code==HTTP_CODE_OK); http.end(); }
+  StaticJsonDocument<128> out; out["ok"]=ok; out["code"]=code; String s; serializeJson(out,s); req->send(200, "application/json", s);
+}
+
 void initWeb() {
   prefs.begin("hv", false);
   loadPrefs();
@@ -434,6 +493,13 @@ void initWeb() {
     Serial.println(F("SPIFFS mount failed"));
   } else {
     Serial.printf("SPIFFS: total=%lu used=%lu\n", (unsigned long)SPIFFS.totalBytes(), (unsigned long)SPIFFS.usedBytes());
+    if (!SPIFFS.exists("/webroot/index.html")) {
+      Serial.println(F("Seeding minimal webroot/index.html"));
+      SPIFFS.mkdir("/webroot");
+      static const char SEED_HTML[] PROGMEM = R"HTML(<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>PeRci Setup</title><style>html,body{margin:0;height:100%;background:#0f1730;color:#e8f0ff;font:14px/1.35 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif}*{box-sizing:border-box}.wrap{max-width:560px;margin:0 auto;padding:18px}h1{margin:6px 0 12px}section{background:#151e3a;border-radius:14px;padding:12px 14px;margin:10px 0;box-shadow:0 4px 16px rgba(0,0,0,.28)}label{display:block;margin:8px 0 4px;color:#9fb6ff;font-weight:700}input[type=text],input[type=password]{width:100%;padding:10px;border-radius:10px;border:1px solid #26355e;background:#0b132a;color:#e8f0ff}button{padding:10px 14px;border-radius:10px;border:0;background:#19c37d;color:#03152b;font-weight:900;cursor:pointer}button.secondary{background:#223;color:#cfe3ff;margin-left:8px}#msg{margin-left:8px}a{color:#9cf}</style><div class=wrap><h1>PeRci • Setup</h1><section><p>This device can fetch the latest UI from the internet. Configure Wi‑Fi (STA) and then check for updates.</p><label>STA Enabled <input id=e type=checkbox></label><label>SSID <input id=s type=text></label><label>Password <input id=p type=password></label><div style="margin-top:10px"><button id=save>Save & Connect</button><button class=secondary id=chk>Check Internet</button><span id=msg></span></div></section><section><h3>UI Assets</h3><div><button id=check>Check for updates</button><button class=secondary id=apply>Apply update</button><span id=umsg></span></div></section><section><h3>Main UI</h3><div>After installing, open <a href="/">main UI</a>.</div></section></div><script>(async function(){async function j(p,b){const r=await fetch(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}async function g(p){const r=await fetch(p);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}async function load(){try{const n=await g('/api/settings');e.checked=!!n.staEnabled;s.value=n.staSSID||'';}catch{}}save.onclick=async()=>{msg.textContent='';try{await j('/api/net',{staEnabled:e.checked,staSSID:s.value,staPASS:p.value,connectNow:true});msg.textContent='Saved. Connecting…';msg.style.color='#9fb6ff';setTimeout(async()=>{const r=await g('/api/net');msg.textContent=r.staConnected?('Connected: '+(r.staIP||'')):'Not connected';msg.style.color=r.staConnected?'#19c37d':'#ffb000';},1500);}catch{msg.textContent='Error';msg.style.color='#ff4d4d'}};chk.onclick=async()=>{msg.textContent='Checking…';try{const r=await g('/api/net/check');msg.textContent=r.ok?'Internet reachable':'No internet ('+(r.code||'')+')';msg.style.color=r.ok?'#19c37d':'#ffb000';}catch{msg.textContent='Error';msg.style.color='#ff4d4d'}};check.onclick=async()=>{umsg.textContent='Checking…';try{const r=await g('/api/ui-update/check');umsg.textContent=r.ok?`Available: files=${r.files} size=${r.size}B free=${r.free}B`:'No update info';umsg.style.color=r.ok?'#19c37d':'#ffb000'}catch{umsg.textContent='Error';umsg.style.color='#ff4d4d'}};apply.onclick=async()=>{umsg.textContent='Updating…';try{const r=await j('/api/ui-update/apply');umsg.textContent=r.ok?'Updated UI — reload /':'Failed: '+(r.err||'');umsg.style.color=r.ok?'#19c37d':'#ff4d4d'}catch{umsg.textContent='Error';umsg.style.color='#ff4d4d'}};load()})();</script>)HTML";
+      File f = SPIFFS.open("/webroot/index.html", FILE_WRITE);
+      if (f) { f.print(SEED_HTML); f.close(); }
+    }
   }
 
   ws.onEvent(onWsEvent);
@@ -473,6 +539,12 @@ void broadcastState() {
   doc["pageCount"]   = g_pageLoadCount;
   doc["armed"]       = g_armed;
   doc["pulseActive"] = g_pulseActive;
+  doc["apSSID"] = WIFI_AP_SSID;
+  doc["apIP"] = WiFi.softAPIP().toString();
+  doc["staEnabled"] = g_staEnabled;
+  bool staConn = (WiFi.getMode() == WIFI_AP_STA && WiFi.status() == WL_CONNECTED);
+  doc["staConnected"] = staConn;
+  doc["staIP"] = staConn ? WiFi.localIP().toString() : String("");
   JsonObject cfg = doc.createNestedObject("cfg");
   cfg["count"]      = g_cfg.count;
   cfg["rateHz"]     = g_cfg.rateHz;
@@ -485,10 +557,6 @@ void broadcastState() {
   doc["wifiClients"] = WiFi.softAPgetStationNum();
   doc["wifiConnected"] = (ws.count() > 0);
   doc["wsCount"] = ws.count();
-  doc["apSSID"] = WIFI_AP_SSID;
-  doc["staConnected"] = (WiFi.getMode() == WIFI_AP_STA && WiFi.status() == WL_CONNECTED);
-  doc["staIP"] = (WiFi.getMode() == WIFI_AP_STA && WiFi.status() == WL_CONNECTED)
-                   ? WiFi.localIP().toString() : String("");
   doc["adc"] = 0;
   doc["nowMs"] = millis();
   if (g_timerActive) {
@@ -505,4 +573,6 @@ void broadcastState() {
 // Settings helpers
 void setAllowUnsupervisedTimer(bool allow) { g_allowUnsupervisedTimer = allow; savePrefs(); }
 bool getAllowUnsupervisedTimer() { return g_allowUnsupervisedTimer; }
+void setStaConfig(bool enabled, const String &ssid, const String &pass) { g_staEnabled=enabled; g_staSSID=ssid; g_staPASS=pass; savePrefs(); }
+void getStaConfig(bool &enabled, String &ssid) { enabled=g_staEnabled; ssid=g_staSSID; }
 
