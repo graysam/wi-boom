@@ -12,13 +12,13 @@ Scripts (preferred)
 Arduino IDE
 - ESP32 Dev Module (ESP32‑WROOM‑32):
   - Tools > Board > ESP32 Arduino > ESP32 Dev Module
-  - Open `hv_trigger_async.ino` and Upload.
+  - Open `perci.ino` and Upload.
 - ESP32‑S3 Dev Module:
   - Tools > Board > ESP32 Arduino > ESP32S3 Dev Module
   - USB CDC On Boot: Enabled
   - Upload Mode: UART0 / Hardware CDC
   - Flash Size: per module (e.g., 8MB)
-  - Open `hv_trigger_async.ino` and Upload.
+  - Open `perci.ino` and Upload.
 
 Arduino CLI
 - ESP32 Dev Module: `arduino-cli compile --fqbn esp32:esp32:esp32 perci.ino`
