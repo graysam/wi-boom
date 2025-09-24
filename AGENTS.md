@@ -1,4 +1,4 @@
-﻿# Repository Guidelines
+# Repository Guidelines
 
 ## Project Structure & Module Organization
 - `PeRci.ino`: Arduino entrypoint (setup/loop, periodic telemetry).
@@ -8,17 +8,17 @@
 
 ## Build, Test, and Development Commands
 - Arduino IDE:
-  - ESP32 Dev Module (ESP32â€‘WROOMâ€‘32): select Board `ESP32 Dev Module`.
-  - ESP32â€‘S3 Dev Module: select Board `ESP32S3 Dev Module` and enable USB CDC.
+  - ESP32 Dev Module (ESP32-WROOM-32): select Board `ESP32 Dev Module`.
+  - ESP32-S3 Dev Module: select Board `ESP32S3 Dev Module` and enable USB CDC.
   - Install AsyncTCP, ESPAsyncWebServer, ArduinoJson. Open `PeRci.ino` and Upload.
 - Arduino CLI (examples):
   - Compile (ESP32): `arduino-cli compile --fqbn esp32:esp32:esp32 PeRci.ino`
-  - Compile (ESP32â€‘S3): `arduino-cli compile --fqbn esp32:esp32:esp32s3 PeRci.ino`
+  - Compile (ESP32-S3): `arduino-cli compile --fqbn esp32:esp32:esp32s3 PeRci.ino`
   - Upload: `arduino-cli upload -p COM5 --fqbn esp32:esp32:esp32 PeRci.ino`
 - Run locally: Not applicable (firmware). After flashing, join AP `PeRci-Remote` and browse `http://10.11.12.1/`.
 
 ## Coding Style & Naming Conventions
-- Indentation: 2 spaces; braces on same line. Keep lines â‰² 100 chars.
+- Indentation: 2 spaces; braces on same line. Keep lines <= 100 chars.
 - Naming: functions `lowerCamelCase` (e.g., `setupWiFiAP`); constants/macros `UPPER_SNAKE_CASE` (e.g., `PIN_LED_GREEN`); files `snake_case`.
 - Includes: prefer local headers first (`"config.h"`) then libraries.
 - Formatting tools: none enforced; match existing style and avoid trailing whitespace.
@@ -36,6 +36,6 @@
 
 ## Security & Configuration Tips
 - Change default SoftAP password in `config.h` before field use.
-- Review pin mappings for your ESP32â€‘S3 variant; avoid driving unintended lines.
-- Treat the HV trigger output as live hardwareâ€”test with dummy loads first.
+- Review pin mappings for your ESP32-S3 variant; avoid driving unintended lines.
+- Treat the HV trigger output as live hardware; test with dummy loads first.
 
